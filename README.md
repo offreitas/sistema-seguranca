@@ -39,6 +39,10 @@ A princípio, são necessários os componentes do ***Kit Home Lab*** que irão i
 
 ![Pseudocódigo](algoritmo_semana1.png)
 
+#### sistema_seguranca:  Unidade de Controle
+
+![Unidade de Controle](diagrama_uc.drawio.png)
+
 #### Transmissão do horário de detecção
 
 Para transmissão do horário de detecção será feita uma integração com um script em python que passa o horário atualizado para a UART.
