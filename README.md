@@ -41,7 +41,7 @@ A princípio, são necessários os componentes do ***Kit Home Lab*** que irão i
 
 #### sistema_seguranca:  Unidade de Controle
 
-![Unidade de Controle](diagrama_uc.drawio.png)
+![Unidade de Controle](diagrama_uc.png)
 
 #### Transmissão do horário de detecção
 
