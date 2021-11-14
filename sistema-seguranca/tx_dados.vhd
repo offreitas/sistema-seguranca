@@ -3,7 +3,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use ieee.math_real.all;
 
-entity tx_dados_sonar is
+entity tx_dados is
     port (
         -- Inputs
         clock      : in std_logic;
@@ -30,7 +30,7 @@ entity tx_dados_sonar is
     );
 end entity;
 
-architecture tx_sonar_arch of tx_dados_sonar is
+architecture tx_sonar_arch of tx_dados is
 
     -- Multiplexador 8x1
     component mux_8x1_n is

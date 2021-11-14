@@ -7,13 +7,13 @@ entity controle_servo_3 is
 		-- Inputs
 		clock   : in  std_logic;
 		reset   : in  std_logic;
-		posicao : in  std_logic_vector(2 downto 0);
+		posicao : in  std_logic_vector(4 downto 0);
 		-- Output
 		pwm : out std_logic;
 		-- Debug
 		db_reset   : out std_logic;
 		db_pwm     : out std_logic;
-		db_posicao : out std_logic_vector(2 downto 0)
+		db_posicao : out std_logic_vector(4 downto 0)
 	);
 end entity;
 
@@ -54,14 +54,32 @@ begin
 	process (posicao)
 	begin
 		case posicao is
-			when "000"  => motor_width <= 50000;  -- 20°
-			when "001"  => motor_width <= 57143;  -- 40°
-			when "010"  => motor_width <= 64286;  -- 60°
-			when "011"  => motor_width <= 71429;  -- 80°
-			when "100"  => motor_width <= 78572;  -- 100°
-			when "101"  => motor_width <= 85715;  -- 120°
-			when "110"  => motor_width <= 92858;  -- 140°
-			when "111"  => motor_width <= 100000; -- 160°
+			when "00000"  => motor_width <= 50000; 
+			when "00001"  => motor_width <= 52000; 
+			when "00010"  => motor_width <= 54000; 
+			when "00011"  => motor_width <= 56000; 
+			when "00100"  => motor_width <= 58000; 
+			when "00101"  => motor_width <= 60000; 
+			when "00110"  => motor_width <= 62000; 
+			when "00111"  => motor_width <= 64000; 
+			when "01000"  => motor_width <= 66000; 
+			when "01001"  => motor_width <= 68000; 
+			when "01010"  => motor_width <= 70000; 
+			when "01011"  => motor_width <= 72000; 
+			when "01100"  => motor_width <= 74000; 
+			when "01101"  => motor_width <= 76000; 
+			when "01110"  => motor_width <= 78000; 
+			when "01111"  => motor_width <= 80000; 
+			when "10000"  => motor_width <= 82000; 
+			when "10001"  => motor_width <= 84000; 
+			when "10010"  => motor_width <= 86000; 
+			when "10011"  => motor_width <= 88000; 
+			when "10100"  => motor_width <= 90000; 
+			when "10101"  => motor_width <= 92000; 
+			when "10110"  => motor_width <= 94000; 
+			when "10111"  => motor_width <= 96000; 
+			when "11000"  => motor_width <= 98000; 
+			when "11001"  => motor_width <= 100000; 
 			when others => motor_width <= 0; 
 		end case;
 	end process;

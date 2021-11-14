@@ -3,39 +3,42 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use ieee.math_real.all;
 
-entity sonar_fd is
+entity sistema_seguranca_fd is
     port (
 		-- Inputs
-		clock      : in std_logic;
-		reset      : in std_logic;
-		ligar      : in std_logic;
-		medir      : in std_logic;
-		posiciona  : in std_logic;
-		transmitir : in std_logic;
-		echo       : in std_logic;
-		dado_serial: in std_logic;
+		clock       : in std_logic;
+		reset       : in std_logic;
+		ligar       : in std_logic;
+		medir       : in std_logic;
+		posiciona   : in std_logic;
+		transmitir  : in std_logic;
+		echo        : in std_logic;
+		dado_serial : in std_logic;
+		calibrando  : in std_logic;
 		-- Outputs
-		pwm                : out std_logic;
-		trigger            : out std_logic;
-		saida_serial       : out std_logic;
-		pronto_tx          : out std_logic;
-		alerta_proximidade : out std_logic;
-		fim_2s             : out std_logic;
-		meio_2s            : out std_logic;
-		pronto_med         : out std_logic;
-		posicao_servo      : out std_logic_vector(2 downto 0);
-		contagem_mux       : out std_logic_vector(2 downto 0);
-		estado_hcsr        : out std_logic_vector(3 downto 0);
-		estado_tx_sonar    : out std_logic_vector(3 downto 0);
-		estado_rx          : out std_logic_vector(3 downto 0);
-		estado_tx          : out std_logic_vector(3 downto 0);
-		dado_recebido      : out std_logic_vector(7 downto 0);
-		distancia          : out std_logic_vector(11 downto 0);
-		angulo             : out std_logic_vector(23 downto 0)
+		pwm                         : out std_logic;
+		trigger                     : out std_logic;
+		saida_serial                : out std_logic;
+		pronto_tx                   : out std_logic;
+		alerta_proximidade          : out std_logic;
+		fim_1s                      : out std_logic;
+		meio_1s                     : out std_logic;
+		pronto_med                  : out std_logic;
+		fim_cal                     : out std_logic;
+		contagem_mux                : out std_logic_vector(2 downto 0);
+		estado_hcsr                 : out std_logic_vector(3 downto 0);
+		estado_tx_sistema_seguranca : out std_logic_vector(3 downto 0);
+		estado_rx                   : out std_logic_vector(3 downto 0);
+		estado_tx                   : out std_logic_vector(3 downto 0);
+		posicao_servo               : out std_logic_vector(4 downto 0);
+		dado_recebido               : out std_logic_vector(7 downto 0);
+		distancia                   : out std_logic_vector(11 downto 0);
+		dist_mem                    : out std_logic_vector(11 downto 0);
+		angulo                      : out std_logic_vector(23 downto 0)
     );
 end entity;
 
-architecture sonar_fd_arch of sonar_fd is
+architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 
 	-- Controle da movimentação do servo motor
 	component movimentacao_servomotor is
@@ -45,15 +48,16 @@ architecture sonar_fd_arch of sonar_fd is
 			reset     : in std_logic;
 			posiciona : in std_logic;
 			-- Outputs
-			pwm     : out std_logic;
-			fim_2s  : out std_logic;
-			meio_2s  : out std_logic;
-			posicao : out std_logic_vector(2 downto 0)
+			pwm      : out std_logic;
+			fim_1s   : out std_logic;
+			meio_1s  : out std_logic;
+			last_pos : out std_logic;
+			posicao  : out std_logic_vector(4 downto 0)
 		);
 	end component;
 
-	-- Transmissao Dados Sonar
-    component tx_dados_sonar is
+	-- Transmissao Dados sistema_seguranca
+    component tx_dados is
         port (
 			-- Inputs
 			clock      : in std_logic;
@@ -130,14 +134,19 @@ architecture sonar_fd_arch of sonar_fd is
 		);
 	end component;
 
-	-- ROM com angulos
-	component rom_8x24 is
+	-- RAM com distancias
+	component ram_dist is
 		port (
-			endereco: in  std_logic_vector(2 downto 0);
-			saida   : out std_logic_vector(23 downto 0)
-		); 
+			-- Inputs
+			clock : in std_logic;
+			wr    : in std_logic;
+			addr  : in std_logic_vector(4 downto 0);
+			din   : in std_logic_vector(11 downto 0);
+			-- Output
+			dout : out std_logic_vector(11 downto 0)
+		);
 	end component;
-
+	
 	-- Registrador generico
 	component registrador_n is
 		generic (
@@ -152,26 +161,57 @@ architecture sonar_fd_arch of sonar_fd is
 		);
 	end component;
 
+	-- Contador Generico
+    component contadorg_m is
+        generic (
+            constant M: integer := 50 -- modulo do contador
+        );
+        port (
+            -- Inputs
+            clock   : in std_logic;
+            zera_as : in std_logic;
+            zera_s  : in std_logic;
+            conta   : in std_logic;
+            -- Outputs
+            Q    : out std_logic_vector (natural(ceil(log2(real(M))))-1 downto 0);
+            fim  : out std_logic;
+            meio : out std_logic 
+        );
+    end component;
+
 	-- Sinal
 	signal clear_reg        : std_logic;
 	signal pronto_med_s     : std_logic;
 	signal trigger_s        : std_logic;
-	signal agtb_vector      : std_logic_vector(2 downto 0);
-	signal altb_vector      : std_logic_vector(2 downto 0);
-	signal aeqb_vector      : std_logic_vector(2 downto 0);
-	signal altb_vector_reg  : std_logic_vector(2 downto 0);
-	signal posicao_s        : std_logic_vector(2 downto 0);
+	signal write_stop       : std_logic;
+	signal write_enable     : std_logic;
+	signal last_pos         : std_logic;
+	signal last_pos_ed      : std_logic;
+	signal calibra          : std_logic;
+	signal agtb_vector      : std_logic_vector(3 downto 0);
+	signal altb_vector      : std_logic_vector(3 downto 0);
+	signal aeqb_vector      : std_logic_vector(3 downto 0);
+	signal altb_vector_reg  : std_logic_vector(3 downto 0);
+	signal posicao_s        : std_logic_vector(4 downto 0);
 	signal dado_recebido_s  : std_logic_vector(7 downto 0);
 	signal distancia_hcsr   : std_logic_vector(11 downto 0);
+	signal distancia_ram    : std_logic_vector(11 downto 0);
 	signal angulo_rom       : std_logic_vector(23 downto 0);
 
 begin
 
 	-- Logica de sinais
-	clear_reg <= reset or posiciona;
+	clear_reg    <= reset or posiciona;
+	calibra      <= calibrando and last_pos_ed;
+	write_enable <= calibrando and (not write_stop);
+
+	-- Inicializacao
+	agtb_vector(0) <= '0';
+	altb_vector(0) <= '0';
+	aeqb_vector(0) <= '0';
 
 	-- Instancias
-    U1: tx_dados_sonar
+    U1_TX: tx_dados
         port map(
             -- Inputs
             clock       => clock,
@@ -197,20 +237,21 @@ begin
 			db_estado_rx    => estado_rx
         );
 
-	U2: movimentacao_servomotor 
+	U2_MOV: movimentacao_servomotor 
 		port map(
 			-- Inputs
 			clock     => clock,
 			reset     => reset,
 			posiciona => posiciona,
 			-- Outputs
-			pwm     => pwm,
-			fim_2s  => fim_2s,
-			meio_2s => meio_2s,
-			posicao => posicao_s
+			pwm      => pwm,
+			fim_1s   => fim_1s,
+			meio_1s  => meio_1s,
+			last_pos => last_pos,
+			posicao  => posicao_s
 		);
 
-	U3: interface_hcsr04 
+	U3_HCS: interface_hcsr04 
 		port map(
 			-- Entradas
 			clock => clock,
@@ -224,74 +265,32 @@ begin
 			-- Debug
 			db_estado => estado_hcsr
 		);										 
-	
-	U4: rom_8x24 port map(endereco => posicao_s, saida => angulo_rom);
 
-	U5: comparador_85
-		port map(
-			-- Inputs
-			i_A3 => distancia_hcsr(3),
-			i_B3 => '0',
-			i_A2 => distancia_hcsr(2),
-			i_B2 => '0',
-			i_A1 => distancia_hcsr(1),
-			i_B1 => '0',
-			i_A0 => distancia_hcsr(0),
-			i_B0 => '0',
-			-- Cascateamento
-			i_AGTB => '0',
-			i_ALTB => '0',
-			i_AEQB => '0',
-			-- Outputs
-			o_AGTB => agtb_vector(2),
-			o_ALTB => altb_vector(2),
-			o_AEQB => aeqb_vector(2)
-		);
+	GEN_COMP: for i in 0 to 2 generate
+		UX_CPX: comparador_85
+			port map(
+				-- Inputs
+				i_A3 => distancia_hcsr(4*i + 3),
+				i_B3 => distancia_ram(4*i + 3),
+				i_A2 => distancia_hcsr(4*i + 2),
+				i_B2 => distancia_ram(4*i + 2),
+				i_A1 => distancia_hcsr(4*i + 1),
+				i_B1 => distancia_ram(4*i + 1),
+				i_A0 => distancia_hcsr(4*i),
+				i_B0 => distancia_ram(4*i),
+				-- Cascateamento
+				i_AGTB => agtb_vector(i),
+				i_ALTB => altb_vector(i),
+				i_AEQB => aeqb_vector(i),
+				-- Outputs
+				o_AGTB => agtb_vector(i + 1),
+				o_ALTB => altb_vector(i + 1),
+				o_AEQB => aeqb_vector(i + 1)
+			);
+	end generate;
 
-	U6: comparador_85
-		port map(
-			-- Inputs
-			i_A3 => distancia_hcsr(7),
-			i_B3 => '0',
-			i_A2 => distancia_hcsr(6),
-			i_B2 => '0',
-			i_A1 => distancia_hcsr(5),
-			i_B1 => '1',
-			i_A0 => distancia_hcsr(4),
-			i_B0 => '0',
-			-- Cascateamento
-			i_AGTB => agtb_vector(2),
-			i_ALTB => altb_vector(2),
-			i_AEQB => aeqb_vector(2),
-			-- Outputs
-			o_AGTB => agtb_vector(1),
-			o_ALTB => altb_vector(1),
-			o_AEQB => aeqb_vector(1)
-		);
-	
-	U7: comparador_85
-		port map(
-			-- Inputs
-			i_A3 => distancia_hcsr(11),
-			i_B3 => '0',
-			i_A2 => distancia_hcsr(10),
-			i_B2 => '0',
-			i_A1 => distancia_hcsr(9),
-			i_B1 => '0',
-			i_A0 => distancia_hcsr(8),
-			i_B0 => '0',
-			-- Cascateamento
-			i_AGTB => agtb_vector(1),
-			i_ALTB => altb_vector(1),
-			i_AEQB => aeqb_vector(1),
-			-- Outputs
-			o_AGTB => agtb_vector(0),
-			o_ALTB => altb_vector(0),
-			o_AEQB => aeqb_vector(0)
-		);
-
-	U8: registrador_n
-		generic map(3)
+	U7_REG: registrador_n
+		generic map(4)
 		port map(
 			clock  => clock,
 			clear  => clear_reg,
@@ -300,12 +299,50 @@ begin
 			Q      => altb_vector_reg
 		);
 
+	U8_RAM: ram_dist
+		port map(
+			-- Inputs
+			clock => clock,
+			wr    => write_enable,
+			addr  => posicao_s,
+			din   => distancia_hcsr,
+			-- Output
+			dout => distancia_ram
+		);
+	
+	-- Conta numero de varreduras: n + 1
+	-- Sendo 2, varre 2 + 1 = 3 vezes
+	U9_CONT: contadorg_m
+		generic map(2)
+		port map(
+			-- Inputs
+			clock   => clock,
+			zera_as => reset,
+			zera_s  => '0',
+			conta   => calibra,
+			-- Outputs
+			Q    => open,
+			fim  => write_stop,
+			meio => open
+		);
+
+	U10_ED: edge_detector
+		port map(
+			-- Inputs
+            clk       => clock,
+            signal_in => last_pos,
+            -- Output
+            output => last_pos_ed
+		);
+
 	-- Outputs
 	dado_recebido      <= dado_recebido_s;
 	pronto_med         <= pronto_med_s;
 	posicao_servo      <= posicao_s;
 	distancia          <= distancia_hcsr;
+	dist_mem           <= distancia_ram;
 	angulo             <= angulo_rom;
-	alerta_proximidade <= altb_vector_reg(0);
+	fim_cal            <= write_stop;
+	alerta_proximidade <= altb_vector_reg(3);
 
 end architecture;
