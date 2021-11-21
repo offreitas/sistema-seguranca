@@ -10,6 +10,7 @@ entity sistema_seguranca is
 		ligar       : in std_logic;
 		echo        : in std_logic;
 		dado_serial : in std_logic;
+		mode        : in std_logic;
 		sel_mux     : in std_logic_vector(1 downto 0);
 		-- Outputs
 		trigger            : out std_logic;
@@ -25,6 +26,9 @@ entity sistema_seguranca is
 		db_transmitir      : out std_logic;
 		db_medir           : out std_logic;
 		calibrando         : out std_logic;
+		alerta_mov         : out std_logic;
+		db_mode            : out std_logic;
+		db_fim_2s          : out std_logic;
 		display0           : out std_logic_vector(6 downto 0);
 		display1           : out std_logic_vector(6 downto 0);
 		display2           : out std_logic_vector(6 downto 0);
@@ -47,12 +51,18 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			pronto_med : in std_logic;
 			pronto_tx  : in std_logic;
 			fim_cal    : in std_logic;
+			alerta     : in std_logic;
+			mode       : in std_logic;
+			senha_ok   : in std_logic;
+			desarmar   : in std_logic;
 			-- Outputs
 			zera       : out std_logic;
 			posiciona  : out std_logic;
 			medir      : out std_logic;
 			transmitir : out std_logic;
 			calibrando : out std_logic;
+			write_en   : out std_logic;
+			alerta_out : out std_logic;
 			db_estado  : out std_logic_vector(3 downto 0)
 		);
 	end component;
@@ -70,6 +80,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			echo        : in std_logic;
 			dado_serial : in std_logic;
 			calibrando  : in std_logic;
+			write_en    : in std_logic;
 			-- Outputs
 			pwm                         : out std_logic;
 			trigger                     : out std_logic;
@@ -85,10 +96,11 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			estado_tx_sistema_seguranca : out std_logic_vector(3 downto 0);
 			estado_rx                   : out std_logic_vector(3 downto 0);
 			estado_tx                   : out std_logic_vector(3 downto 0);
-			posicao_servo               : out std_logic_vector(4 downto 0);
+			posicao_servo               : out std_logic_vector(3 downto 0);
 			dado_recebido               : out std_logic_vector(7 downto 0);
 			distancia                   : out std_logic_vector(11 downto 0);
 			dist_mem                    : out std_logic_vector(11 downto 0);
+			dist_mais_sens              : out std_logic_vector(11 downto 0);
 			angulo                      : out std_logic_vector(23 downto 0)
 		);
 	end component;
@@ -124,18 +136,18 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 	signal saida_serial_s, pwm_s                    : std_logic;
 	signal alerta_proximidade_s                     : std_logic;
 	signal transmitir_s, pronto_med_s               : std_logic;
-	signal fim_cal_s, calibrando_s                  : std_logic;
+	signal fim_cal_s, calibrando_s, write_en_s      : std_logic;
+	signal trigger_s, mode_s                        : std_logic;
 	signal contagem_mux_3bits                       : std_logic_vector(2 downto 0);
 	signal contagem_mux_4bits                       : std_logic_vector(3 downto 0);
 	signal sistema_seguranca_estado, posicao_4bits  : std_logic_vector(3 downto 0);
 	signal estado_hcsr, estado_tx_sistema_seguranca : std_logic_vector(3 downto 0);
 	signal estado_rx, estado_tx                     : std_logic_vector(3 downto 0);
-	signal posicao_5bits                            : std_logic_vector(4 downto 0);
 	signal dado_recebido_s                          : std_logic_vector(7 downto 0);
 	signal distancia_bcd                            : std_logic_vector(11 downto 0);
 	signal dist_mem                                 : std_logic_vector(11 downto 0);
+	signal dist_sens                                : std_logic_vector(11 downto 0);
 	signal angulo_bcd_hex                           : std_logic_vector(23 downto 0);
-	signal trigger_s							    : std_logic;
 
 	-- Saidas dos multiplexadores
 	signal m0_out, m1_out, m2_out, m3_out, m4_out, m5_out : std_logic_vector(3 downto 0);
@@ -144,6 +156,7 @@ begin
 
 	-- Logica de sinais
 	reset_fd           <= reset or zera_s;
+	mode_s             <= mode;
 	contagem_mux_4bits <= '0' & contagem_mux_3bits;
 
 	-- Instancias
@@ -157,12 +170,18 @@ begin
 			pronto_med => pronto_med_s,
 			pronto_tx  => pronto_tx_s,
 			fim_cal    => fim_cal_s,
+			alerta     => alerta_proximidade_s,
+			mode       => mode_s,
+			senha_ok   => '0',
+			desarmar   => '0',
 			-- Outputs
 			zera       => zera_s,
 			posiciona  => posiciona_s,
 			medir      => medir_s,
 			transmitir => transmitir_s,
 			calibrando => calibrando_s,
+			write_en   => write_en_s,
+			alerta_out => alerta_mov,
 			db_estado  => sistema_seguranca_estado
 		);
 
@@ -178,6 +197,7 @@ begin
 			echo        => echo,
 			dado_serial => dado_serial,
 			calibrando  => calibrando_s,
+			write_en    => write_en_s,
 			-- Outputs
 			pwm                         => pwm_s,
 			trigger                     => trigger_s,
@@ -193,16 +213,13 @@ begin
 			estado_tx_sistema_seguranca => estado_tx_sistema_seguranca,
 			estado_rx                   => estado_rx,
 			estado_tx                   => estado_tx,
-			posicao_servo               => posicao_5bits,
+			posicao_servo               => posicao_4bits,
 			dado_recebido               => dado_recebido_s,
 			distancia                   => distancia_bcd,
 			dist_mem                    => dist_mem,
+			dist_mais_sens              => dist_sens,
 			angulo                      => angulo_bcd_hex
 		);
-	
-	trigger <= trigger_s;
-	db_trigger <= trigger_s;
-	db_echo <= echo;
 	
 	M0: mux_4x1_n --VALOR DO DISPLAY HEX0
 		generic map(4)
@@ -248,7 +265,7 @@ begin
 		port map(
 			-- Inputs
 			D0  => "0000",--SEL_MUX=00 a definir...
-			D1  => "0000", --SEL_MUX=00 (DADO_TX0)
+			D1  => dist_sens(3 downto 0), --SEL_MUX=00 (DADO_TX0)
 			D2  => "0000", --SEL_MUX=00 (dado_tx1)
 			D3  => "0000",--SEL_MUX=11 a definir...
 			SEL => sel_mux,
@@ -261,7 +278,7 @@ begin
 		port map(
 			-- Inputs
 			D0  => estado_hcsr,
-			D1  => "0000", -- DADO_TX1
+			D1  => dist_sens(7 downto 4), -- DADO_TX1
 			D2  => contagem_mux_4bits,
 			D3  => "0000",
 			SEL => sel_mux,
@@ -274,7 +291,7 @@ begin
 		port map(
 			-- Inputs
 			D0  => X"0",
-			D1  => estado_tx,
+			D1  => dist_sens(11 downto 8),
 			D2  => estado_tx_sistema_seguranca,
 			D3  => sistema_seguranca_estado,
 			SEL => sel_mux,
@@ -293,6 +310,8 @@ begin
 	pwm    <= pwm_s;
 	pwm_ch <= pwm_s;
 
+	trigger <= trigger_s;
+
 	calibrando <= calibrando_s;
 	
 	saida_serial      <= saida_serial_s;
@@ -302,6 +321,10 @@ begin
 	alerta_proximidade <= alerta_proximidade_s;
 	alerta_prox_mqtt   <= alerta_proximidade_s;
 
-	db_medir <= medir_s;
+	db_medir   <= medir_s;
+	db_trigger <= trigger_s;
+	db_echo    <= echo;
+	db_mode    <= mode_s;
+	db_fim_2s  <= fim_1s_s;
 
 end architecture;

@@ -68,20 +68,17 @@ architecture hcsr04_arch of interface_hcsr04 is
     end component;
 
     -- SINAIS
-    signal medir_s, zera_s, gera_s, registra_s : std_logic;
-    signal fim_med_s, tick : std_logic;
+    signal fim_med_s, tick            : std_logic;
+    signal zera_s, gera_s, registra_s : std_logic;
 
 begin
-
-    -- ENTRADAS
-    medir_s <= medir;
 
     -- INSTANCIAS
     U1: interface_hcsr04_uc 
             port map(-- Entradas
                      clock    => clock,
                      reset    => reset,
-                     medir    => medir_s,
+                     medir    => medir,
                      echo     => echo,
                      fim_med  => fim_med_s,
                      -- Saidas

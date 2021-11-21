@@ -15,6 +15,7 @@ entity sistema_seguranca_fd is
 		echo        : in std_logic;
 		dado_serial : in std_logic;
 		calibrando  : in std_logic;
+		write_en    : in std_logic;
 		-- Outputs
 		pwm                         : out std_logic;
 		trigger                     : out std_logic;
@@ -30,10 +31,11 @@ entity sistema_seguranca_fd is
 		estado_tx_sistema_seguranca : out std_logic_vector(3 downto 0);
 		estado_rx                   : out std_logic_vector(3 downto 0);
 		estado_tx                   : out std_logic_vector(3 downto 0);
-		posicao_servo               : out std_logic_vector(4 downto 0);
+		posicao_servo               : out std_logic_vector(3 downto 0);
 		dado_recebido               : out std_logic_vector(7 downto 0);
 		distancia                   : out std_logic_vector(11 downto 0);
 		dist_mem                    : out std_logic_vector(11 downto 0);
+		dist_mais_sens              : out std_logic_vector(11 downto 0);
 		angulo                      : out std_logic_vector(23 downto 0)
     );
 end entity;
@@ -52,7 +54,7 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 			fim_1s   : out std_logic;
 			meio_1s  : out std_logic;
 			last_pos : out std_logic;
-			posicao  : out std_logic_vector(4 downto 0)
+			posicao  : out std_logic_vector(3 downto 0)
 		);
 	end component;
 
@@ -140,7 +142,7 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 			-- Inputs
 			clock : in std_logic;
 			wr    : in std_logic;
-			addr  : in std_logic_vector(4 downto 0);
+			addr  : in std_logic_vector(3 downto 0);
 			din   : in std_logic_vector(11 downto 0);
 			-- Output
 			dout : out std_logic_vector(11 downto 0)
@@ -179,6 +181,16 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
         );
     end component;
 
+	-- Full Adder
+	component fullAdder is
+		port(
+			-- Inputs
+			a, b, cin : in std_logic;
+			-- Outputs
+			s, cout   : out std_logic
+		);
+	end component;
+
 	-- Sinal
 	signal clear_reg        : std_logic;
 	signal pronto_med_s     : std_logic;
@@ -192,10 +204,13 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 	signal altb_vector      : std_logic_vector(3 downto 0);
 	signal aeqb_vector      : std_logic_vector(3 downto 0);
 	signal altb_vector_reg  : std_logic_vector(3 downto 0);
-	signal posicao_s        : std_logic_vector(4 downto 0);
+	signal posicao_s        : std_logic_vector(3 downto 0);
 	signal dado_recebido_s  : std_logic_vector(7 downto 0);
 	signal distancia_hcsr   : std_logic_vector(11 downto 0);
 	signal distancia_ram    : std_logic_vector(11 downto 0);
+	signal sensibilidade    : std_logic_vector(11 downto 0);
+	signal dist_sens        : std_logic_vector(11 downto 0);
+	signal carry            : std_logic_vector(12 downto 0);
 	signal angulo_rom       : std_logic_vector(23 downto 0);
 
 begin
@@ -203,12 +218,16 @@ begin
 	-- Logica de sinais
 	clear_reg    <= reset or posiciona;
 	calibra      <= calibrando and last_pos_ed;
-	write_enable <= calibrando and (not write_stop);
+	write_enable <= (calibrando and (not write_stop)) or write_en;
 
 	-- Inicializacao
 	agtb_vector(0) <= '0';
 	altb_vector(0) <= '0';
-	aeqb_vector(0) <= '0';
+	aeqb_vector(0) <= '1';
+
+	carry(0) <= '1';
+
+	sensibilidade <= not B"0000_0000_0010";
 
 	-- Instancias
     U1_TX: tx_dados
@@ -271,13 +290,13 @@ begin
 			port map(
 				-- Inputs
 				i_A3 => distancia_hcsr(4*i + 3),
-				i_B3 => distancia_ram(4*i + 3),
+				i_B3 => dist_sens(4*i + 3),
 				i_A2 => distancia_hcsr(4*i + 2),
-				i_B2 => distancia_ram(4*i + 2),
+				i_B2 => dist_sens(4*i + 2),
 				i_A1 => distancia_hcsr(4*i + 1),
-				i_B1 => distancia_ram(4*i + 1),
+				i_B1 => dist_sens(4*i + 1),
 				i_A0 => distancia_hcsr(4*i),
-				i_B0 => distancia_ram(4*i),
+				i_B0 => dist_sens(4*i),
 				-- Cascateamento
 				i_AGTB => agtb_vector(i),
 				i_ALTB => altb_vector(i),
@@ -286,6 +305,19 @@ begin
 				o_AGTB => agtb_vector(i + 1),
 				o_ALTB => altb_vector(i + 1),
 				o_AEQB => aeqb_vector(i + 1)
+			);
+	end generate;
+
+	GEN_ADD: for i in 0 to 11 generate
+		UX_ADX: fullAdder
+			port map(
+				-- Inputs
+				a   => distancia_ram(i),
+				b   => sensibilidade(i),
+				cin => carry(i),
+				-- Outputs
+				s    => dist_sens(i),
+				cout => carry(i + 1)
 			);
 	end generate;
 
@@ -344,5 +376,6 @@ begin
 	angulo             <= angulo_rom;
 	fim_cal            <= write_stop;
 	alerta_proximidade <= altb_vector_reg(3);
+	dist_mais_sens     <= dist_sens;
 
 end architecture;

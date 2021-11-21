@@ -14,7 +14,7 @@ entity movimentacao_servomotor is
         fim_1s   : out std_logic;
         meio_1s  : out std_logic;
         last_pos : out std_logic;
-        posicao  : out std_logic_vector(4 downto 0)
+        posicao  : out std_logic_vector(3 downto 0)
     );
 end entity;
 
@@ -43,13 +43,13 @@ architecture mov_servo_arch of movimentacao_servomotor is
             -- Inputs
             clock   : in  std_logic;
             reset   : in  std_logic;
-            posicao : in  std_logic_vector(4 downto 0);
+            posicao : in  std_logic_vector(3 downto 0);
             -- Output
             pwm : out std_logic;
             -- Debug
             db_reset   : out std_logic;
             db_pwm     : out std_logic;
-            db_posicao : out std_logic_vector(4 downto 0)
+            db_posicao : out std_logic_vector(3 downto 0)
         );
     end component;
 
@@ -75,12 +75,12 @@ architecture mov_servo_arch of movimentacao_servomotor is
     signal conta_updown   : std_logic;
     signal tick, off_tick : std_logic;
     signal pwm_s          : std_logic;
-    signal posicao_s      : std_logic_vector(4 downto 0);
+    signal posicao_s      : std_logic_vector(3 downto 0);
 
 begin
     -- Instancias
     U1: contadorg_updown_m
-        generic map(26)
+        generic map(11)
         port map(
             -- Inputs
             clock   => clock,
@@ -109,7 +109,7 @@ begin
         );
 
     U3: contadorg_m
-        generic map(50000000) -- 1s = 50000000
+        generic map(100000000) -- 1s = 50000000; 2s = 100000000
         port map(
             -- Inputs
             clock   => clock,

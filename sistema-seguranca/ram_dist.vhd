@@ -8,7 +8,7 @@ entity ram_dist is
         -- Inputs
         clock : in std_logic;
         wr    : in std_logic;
-        addr  : in std_logic_vector(4 downto 0);
+        addr  : in std_logic_vector(3 downto 0);
         din   : in std_logic_vector(11 downto 0);
         -- Output
         dout : out std_logic_vector(11 downto 0)
@@ -17,7 +17,7 @@ end entity;
 
 architecture ram_dist_arch of ram_dist is
 
-    type ram_array is array (0 to 25) of std_logic_vector(11 downto 0);
+    type ram_array is array (0 to 10) of std_logic_vector(11 downto 0);
     signal ram_block : ram_array;
 
 begin

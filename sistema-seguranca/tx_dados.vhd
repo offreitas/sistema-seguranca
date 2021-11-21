@@ -19,7 +19,7 @@ entity tx_dados is
         -- Outputs
         saida_serial : out std_logic;
         pronto       : out std_logic;
-        pronto_rx     : out std_logic;
+        pronto_rx    : out std_logic;
         contagem_mux : out std_logic_vector(2 downto 0);
         dado_recebido: out std_logic_vector(7 downto 0);
         -- Debug
