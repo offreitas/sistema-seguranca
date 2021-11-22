@@ -47,7 +47,7 @@ begin
     -- Memoria de estado
     process(clock, reset)
     begin
-        if reset = '1' or ligar = '0' then
+        if (reset = '1' or ligar = '0') then
             Eatual <= idle;
         -- elsif ligar'event and event = '0' then
         --     Eatual <= desarmar_auth;
@@ -133,8 +133,10 @@ begin
             when transmissao =>
                 if pronto_tx = '1' and mode = '1' then
                     Eprox <= detectado;
-                else
+                elsif pronto_tx = '1' and mode = '0' then
                     Eprox <= localizacao;
+                else
+                    Eprox <= transmissao;
                 end if;
 					 
             when detectado => Eprox <= detectado;

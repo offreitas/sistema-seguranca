@@ -42,17 +42,18 @@ architecture hcsr04_fd_arch of interface_hcsr04_fd is
               fim:                    out std_logic
         );
     end component;
-	 --CONTADOR BINARIO
-	 component contadorg_m
-			generic (
-				constant M: integer := 50 -- modulo do contador
-			);
-			port (
-				clock, zera_as, zera_s, conta: in std_logic;
-				Q: out std_logic_vector (natural(ceil(log2(real(M))))-1 downto 0);
-				fim, meio: out std_logic 
-			);
-		end component;
+    
+    --CONTADOR BINARIO
+    component contadorg_m
+        generic (
+            constant M: integer := 50 -- modulo do contador
+        );
+        port (
+            clock, zera_as, zera_s, conta: in std_logic;
+            Q: out std_logic_vector (natural(ceil(log2(real(M))))-1 downto 0);
+            fim, meio: out std_logic 
+        );
+    end component;
 
     -- REGISTRADOR
     component registrador_n is
@@ -85,14 +86,14 @@ begin
                      pulso  => trigger,
                      pronto => open);
     
-	 U2: contadorg_m generic map(M=>4096)
-						  port map(clock => clock,
-						  zera_as => '0',
-						  zera_s => zera,
-						  conta => conta,
-						  Q => dist_s,
-						  fim => fim,
-						  meio => open );
+    U2: contadorg_m generic map(M=>4096)
+                        port map(clock => clock,
+                        zera_as => '0',
+                        zera_s => zera,
+                        conta => conta,
+                        Q => dist_s,
+                        fim => fim,
+                        meio => open );
 	 
     --U2: contador_bcd_4digitos
     --        port map(-- Entradas
