@@ -6,9 +6,9 @@ use ieee.math_real.all;
 entity movimentacao_servomotor is
     port (
         -- Inputs
-        clock     : in std_logic;
-        reset     : in std_logic;
-        posiciona : in std_logic;
+        clock : in std_logic;
+        reset : in std_logic;
+        ligar : in std_logic;
         -- Outputs
         pwm      : out std_logic;
         fim_1s   : out std_logic;
@@ -109,13 +109,13 @@ begin
         );
 
     U3: contadorg_m
-        generic map(100000000) -- 1s = 50000000; 2s = 100000000
+        generic map(50000000) -- 1s = 50000000; 2s = 100000000
         port map(
             -- Inputs
             clock   => clock,
             zera_as => reset,
             zera_s  => '0',
-            conta   => posiciona,
+            conta   => ligar,
             -- Outputs
             Q    => open,
             fim  => tick,

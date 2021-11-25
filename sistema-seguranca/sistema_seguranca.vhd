@@ -11,6 +11,8 @@ entity sistema_seguranca is
 		echo        : in std_logic;
 		dado_serial : in std_logic;
 		mode        : in std_logic;
+		senha_ok    : in std_logic;
+		desarmar    : in std_logic;
 		sel_mux     : in std_logic_vector(1 downto 0);
 		-- Outputs
 		trigger            : out std_logic;
@@ -29,6 +31,7 @@ entity sistema_seguranca is
 		alerta_mov         : out std_logic;
 		db_mode            : out std_logic;
 		db_fim_2s          : out std_logic;
+		db_erro            : out std_logic;
 		display0           : out std_logic_vector(6 downto 0);
 		display1           : out std_logic_vector(6 downto 0);
 		display2           : out std_logic_vector(6 downto 0);
@@ -55,6 +58,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			mode       : in std_logic;
 			senha_ok   : in std_logic;
 			desarmar   : in std_logic;
+			erro       : in std_logic;
 			-- Outputs
 			zera       : out std_logic;
 			posiciona  : out std_logic;
@@ -63,6 +67,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			calibrando : out std_logic;
 			write_en   : out std_logic;
 			alerta_out : out std_logic;
+			clear_reg  : out std_logic;
 			db_estado  : out std_logic_vector(3 downto 0)
 		);
 	end component;
@@ -73,6 +78,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			-- Inputs
 			clock       : in std_logic;
 			reset       : in std_logic;
+			zera        : in std_logic;
 			ligar       : in std_logic;
 			medir       : in std_logic;
 			posiciona   : in std_logic;
@@ -81,6 +87,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			dado_serial : in std_logic;
 			calibrando  : in std_logic;
 			write_en    : in std_logic;
+			clear_reg   : in std_logic;
 			-- Outputs
 			pwm                         : out std_logic;
 			trigger                     : out std_logic;
@@ -91,6 +98,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			meio_1s                     : out std_logic;
 			pronto_med                  : out std_logic;
 			fim_cal                     : out std_logic;
+			erro                        : out std_logic;
 			contagem_mux                : out std_logic_vector(2 downto 0);
 			estado_hcsr                 : out std_logic_vector(3 downto 0);
 			estado_tx_sistema_seguranca : out std_logic_vector(3 downto 0);
@@ -137,7 +145,8 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 	signal alerta_proximidade_s                     : std_logic;
 	signal transmitir_s, pronto_med_s               : std_logic;
 	signal fim_cal_s, calibrando_s, write_en_s      : std_logic;
-	signal trigger_s, mode_s                        : std_logic;
+	signal trigger_s, mode_s, alerta_s              : std_logic;
+	signal erro_s, clear_reg_s                      : std_logic;
 	signal contagem_mux_3bits                       : std_logic_vector(2 downto 0);
 	signal contagem_mux_4bits                       : std_logic_vector(3 downto 0);
 	signal sistema_seguranca_estado, posicao_4bits  : std_logic_vector(3 downto 0);
@@ -172,8 +181,9 @@ begin
 			fim_cal    => fim_cal_s,
 			alerta     => alerta_proximidade_s,
 			mode       => mode_s,
-			senha_ok   => '0',
-			desarmar   => '0',
+			senha_ok   => senha_ok,
+			desarmar   => desarmar,
+			erro       => erro_s,
 			-- Outputs
 			zera       => zera_s,
 			posiciona  => posiciona_s,
@@ -181,7 +191,8 @@ begin
 			transmitir => transmitir_s,
 			calibrando => calibrando_s,
 			write_en   => write_en_s,
-			alerta_out => alerta_mov,
+			alerta_out => alerta_s,
+			clear_reg  => clear_reg_s,
 			db_estado  => sistema_seguranca_estado
 		);
 
@@ -190,6 +201,7 @@ begin
 			-- Inputs
 			clock       => clock,
 			reset       => reset_fd,
+			zera        => zera_s,
 			ligar       => ligar,
 			medir       => medir_s,
 			posiciona   => posiciona_s,
@@ -198,6 +210,7 @@ begin
 			dado_serial => dado_serial,
 			calibrando  => calibrando_s,
 			write_en    => write_en_s,
+			clear_reg   => clear_reg_s,
 			-- Outputs
 			pwm                         => pwm_s,
 			trigger                     => trigger_s,
@@ -208,6 +221,7 @@ begin
 			meio_1s                     => meio_1s_s,
 			pronto_med                  => pronto_med_s,
 			fim_cal                     => fim_cal_s,
+			erro                        => erro_s,
 			contagem_mux                => contagem_mux_3bits,
 			estado_hcsr                 => estado_hcsr,
 			estado_tx_sistema_seguranca => estado_tx_sistema_seguranca,
@@ -313,6 +327,8 @@ begin
 	trigger <= trigger_s;
 
 	calibrando <= calibrando_s;
+
+	alerta_mov <= alerta_s;
 	
 	saida_serial      <= saida_serial_s;
 	saida_serial_ch   <= saida_serial_s;
@@ -326,5 +342,6 @@ begin
 	db_echo    <= echo;
 	db_mode    <= mode_s;
 	db_fim_2s  <= fim_1s_s;
+	db_erro    <= erro_s;
 
 end architecture;

@@ -88,8 +88,8 @@ begin
     
     U2: contadorg_m generic map(M=>4096)
                         port map(clock => clock,
-                        zera_as => '0',
-                        zera_s => zera,
+                        zera_as => zera,
+                        zera_s => '0',
                         conta => conta,
                         Q => dist_s,
                         fim => fim,

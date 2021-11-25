@@ -10,11 +10,13 @@ entity interface_hcsr04_uc is
         medir   : in std_logic;
         echo    : in std_logic;
         fim_med : in std_logic;
+        timer   : in std_logic;
         -- Saidas
         zera     : out std_logic;
         gera     : out std_logic;
         registra : out std_logic;
         pronto   : out std_logic;
+        erro     : out std_logic;
         -- Debug
         db_estado : out std_logic_vector(3 downto 0)
     );
@@ -22,7 +24,7 @@ end entity;
 
 architecture hcsr04_uc_arch of interface_hcsr04_uc is
 
-    type tipo_estado is (inicial, preparacao, pulso, espera, medicao, registro, final);
+    type tipo_estado is (inicial, preparacao, pulso, espera, medicao, registro, final, excecao);
     signal Eatual : tipo_estado;
     signal Eprox  : tipo_estado;
     
@@ -39,31 +41,45 @@ begin
     end process;
 
     -- Logica de proximo estado
-    process (medir, echo, fim_med, Eatual)
+    process (medir, echo, fim_med, timer, Eatual)
     begin
         case Eatual is
-            when inicial => if medir = '1' then Eprox <= preparacao;
-                            else                Eprox <= inicial;
-                            end if;
+            when inicial => 
+                if medir = '1' then
+                    Eprox <= preparacao;
+                else
+                    Eprox <= inicial;
+                end if;
 
             when preparacao => Eprox <= pulso;
 
             when pulso => Eprox <= espera;
 
-            when espera => if echo = '1' then Eprox <= medicao;
-                           else               Eprox <= espera;
-                           end if;
+            when espera =>
+                if timer = '1' then
+                    Eprox <= excecao;
+                elsif echo = '1' then
+                    Eprox <= medicao;
+                else
+                    Eprox <= espera;
+                end if;
 
-            when medicao => if fim_med = '1' or
-                               echo    = '0' then Eprox <= registro;
-                            else                  Eprox <= medicao;
-                            end if;
+            when medicao =>
+                if fim_med = '1' then
+                    Eprox <= registro;
+                elsif echo = '0' then
+                    Eprox <= registro;
+                else
+                    Eprox <= medicao;
+                end if;
 
             when registro => Eprox <= final;
 
             when final => Eprox <= inicial;
 
-            when others => Eprox <= final;
+            when excecao => Eprox <= inicial;
+
+            when others => Eprox <= inicial;
         end case;
     end process;
 
@@ -80,15 +96,19 @@ begin
     with Eatual select
         pronto <= '1' when final, '0' when others;
 
-    
+    with Eatual select
+        erro <= '1' when excecao, '0' when others;
+
     -- Saida de deuaracao
     with Eatual select
-        db_estado <= "0000" when inicial,
-                     "0001" when preparacao,
-                     "0010" when pulso,
-                     "0011" when espera,
-                     "0100" when medicao,
-                     "0101" when registro,
-                     "0110" when final;
+        db_estado <=
+            "0000" when inicial,
+            "0001" when preparacao,
+            "0010" when pulso,
+            "0011" when espera,
+            "0100" when medicao,
+            "0101" when registro,
+            "0110" when final,
+            "0111" when excecao;
 
 end architecture;

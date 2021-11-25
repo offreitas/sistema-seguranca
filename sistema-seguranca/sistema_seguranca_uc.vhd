@@ -16,6 +16,7 @@ entity sistema_seguranca_uc is
         mode       : in std_logic;
         senha_ok   : in std_logic;
         desarmar   : in std_logic;
+        erro       : in std_logic;
         -- Outputs
         zera       : out std_logic;
         posiciona  : out std_logic;
@@ -24,6 +25,7 @@ entity sistema_seguranca_uc is
         calibrando : out std_logic;
         write_en   : out std_logic;
         alerta_out : out std_logic;
+        clear_reg  : out std_logic;
         db_estado  : out std_logic_vector(3 downto 0)
     );
 end entity;
@@ -35,8 +37,8 @@ architecture sistema_seguranca_uc_arch of sistema_seguranca_uc is
             idle, preparacao, cal_medida,
             cal_espera, cal_localizacao, cal_ultima_med,
             cal_armazena_ultima, medida, espera_med,
-            transmissao, localizacao, analise, detectado
-            -- ligar_auth, desarmar_auth
+            transmissao, localizacao, analise, detectado,
+            ligar_auth, desarmar_auth
         );
 
     signal Eatual : tipo_estado;
@@ -45,19 +47,21 @@ architecture sistema_seguranca_uc_arch of sistema_seguranca_uc is
 begin
 
     -- Memoria de estado
-    process(clock, reset)
+    process(clock, reset, ligar, erro)
     begin
-        if (reset = '1' or ligar = '0') then
+        if reset = '1' then
             Eatual <= idle;
-        -- elsif ligar'event and event = '0' then
-        --     Eatual <= desarmar_auth;
+        elsif erro = '1' then
+            Eatual <= idle;
+        elsif ligar = '0' then
+            Eatual <= idle;
         elsif clock'event and clock = '1' then
             Eatual <= Eprox;
         end if;
     end process;
 
     -- Logica de proximo estado
-    process(ligar, fim_1s, pronto_med, pronto_tx, fim_cal, alerta, mode, senha_ok, desarmar, Eatual)
+    process(ligar, fim_1s, pronto_med, pronto_tx, fim_cal, alerta, mode, senha_ok, Eatual)
     begin
         case Eatual is
             when idle => 
@@ -67,17 +71,17 @@ begin
                     Eprox <= idle;
                 end if;
 
-            when preparacao => Eprox <= cal_medida;
+            -- when preparacao => Eprox <= cal_medida;
 
-            -- when preparacao => Eprox <= ligar_auth;
+            when preparacao => Eprox <= ligar_auth;
 
-            -- -- Armar
-            -- when ligar_auth =>
-            --     if senha_ok = '1' then
-            --         Eprox <= cal_medida;
-            --     else
-            --         Eprox <= ligar_auth;
-            --     end if;
+            -- Armar
+            when ligar_auth =>
+                if senha_ok = '1' then
+                    Eprox <= cal_medida;
+                else
+                    Eprox <= ligar_auth;
+                end if;
 
             -- Calibracao
             when cal_medida => Eprox <= cal_espera;
@@ -116,7 +120,7 @@ begin
 			
             when espera_med => 
                 if fim_1s = '1' then
-                    Eprox <= localizacao;
+                    Eprox <= medida;
                 elsif pronto_med = '1' then
                     Eprox <= analise;
                 else
@@ -139,14 +143,14 @@ begin
                     Eprox <= transmissao;
                 end if;
 					 
-            when detectado => Eprox <= detectado;
+            -- when detectado => Eprox <= detectado;
 
-            -- when detectado =>
-            --     if desarmar = '1' then
-            --         Eprox <= desarmar_auth;
-            --     else
-            --         Eprox <= detectado;
-            --     end if;
+            when detectado =>
+                if desarmar = '1' then
+                    Eprox <= desarmar_auth;
+                else
+                    Eprox <= detectado;
+                end if;
 
             when localizacao => 
                 if fim_1s = '1' then
@@ -155,13 +159,13 @@ begin
                     Eprox <= localizacao;
                 end if;
 
-            -- -- Desarmar
-            -- when desarmar_auth =>
-            --     if senha_ok = '1' then
-            --         Eprox <= idle;
-            --     else
-            --         Eprox <= desarmar_auth;
-            --     end if;
+            -- Desarmar
+            when desarmar_auth =>
+                if senha_ok = '1' then
+                    Eprox <= idle;
+                else
+                    Eprox <= desarmar_auth;
+                end if;
 
             when others => Eprox <= idle;
         end case;
@@ -182,9 +186,11 @@ begin
     
     with Eatual select
         posiciona <= 
-            '1' when localizacao,
-            '1' when cal_localizacao,
-            '0' when others;
+            '0' when idle,
+            '0' when ligar_auth,
+            '0' when desarmar_auth,
+            '0' when detectado,
+            '1' when others;
 
     with Eatual select
         calibrando <= 
@@ -198,8 +204,11 @@ begin
     with Eatual select
         write_en <= '1' when cal_armazena_ultima, '0' when others;
 		  
-	 with Eatual select
+    with Eatual select
         alerta_out <= '1' when detectado, '0' when others;
+
+    with Eatual select
+        clear_reg <= '1' when localizacao, '0' when others;
             
     -- Debug
     with Eatual select
@@ -216,8 +225,8 @@ begin
             "1001" when cal_ultima_med,
             "1010" when cal_armazena_ultima,
             "1011" when analise,
-            "1101" when detectado;
-            -- "1110" when armar_auth,
-            -- "1111" when desarmar_auth;
+            "1101" when detectado,
+            "1110" when ligar_auth,
+            "1111" when desarmar_auth;
 
 end architecture;

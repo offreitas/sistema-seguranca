@@ -142,14 +142,14 @@ begin
         generic map(8)
         port map(
             -- Inputs
-            D0      => angulo2_ascii,
-            D1      => angulo1_ascii,
-            D2      => angulo0_ascii,
-            D3      => "00101100",
-            D4      => distancia2_ascii,
-            D5      => distancia1_ascii,
-            D6      => distancia0_ascii,
-            D7      => "00101110",
+            D0      => B"0101_0001", -- Q
+            D1      => B"1111_0101", -- u
+            D2      => B"0110_0001", -- a
+            D3      => B"0111_0010", -- r
+            D4      => B"0111_0100", -- t
+            D5      => B"0110_1111", -- o
+            D6      => B"0000_0000", --
+            D7      => B"0000_0000", --
             SEL     => selmux,
             -- Output
             MUX_OUT => mux_out_ascii

@@ -8,6 +8,7 @@ entity sistema_seguranca_fd is
 		-- Inputs
 		clock       : in std_logic;
 		reset       : in std_logic;
+		zera        : in std_logic;
 		ligar       : in std_logic;
 		medir       : in std_logic;
 		posiciona   : in std_logic;
@@ -16,6 +17,7 @@ entity sistema_seguranca_fd is
 		dado_serial : in std_logic;
 		calibrando  : in std_logic;
 		write_en    : in std_logic;
+		clear_reg   : in std_logic;
 		-- Outputs
 		pwm                         : out std_logic;
 		trigger                     : out std_logic;
@@ -26,6 +28,7 @@ entity sistema_seguranca_fd is
 		meio_1s                     : out std_logic;
 		pronto_med                  : out std_logic;
 		fim_cal                     : out std_logic;
+		erro                        : out std_logic;
 		contagem_mux                : out std_logic_vector(2 downto 0);
 		estado_hcsr                 : out std_logic_vector(3 downto 0);
 		estado_tx_sistema_seguranca : out std_logic_vector(3 downto 0);
@@ -46,9 +49,9 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 	component movimentacao_servomotor is
 		port (
 			-- Inputs
-			clock     : in std_logic;
-			reset     : in std_logic;
-			posiciona : in std_logic;
+			clock : in std_logic;
+			reset : in std_logic;
+			ligar : in std_logic;
 			-- Outputs
 			pwm      : out std_logic;
 			fim_1s   : out std_logic;
@@ -105,9 +108,11 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 			reset : in std_logic;
 			medir : in std_logic;
 			echo  : in std_logic;
+			timer : in std_logic;
 			-- Outputs
 			trigger : out std_logic;
 			pronto  : out std_logic;
+			erro    : out std_logic;
 			medida  : out std_logic_vector(11 downto 0); -- 3 digitos BCD
 			-- Debug
 			db_estado : out std_logic_vector(3 downto 0)
@@ -191,8 +196,8 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 		);
 	end component;
 
-	-- Sinal
-	signal clear_reg        : std_logic;
+	-- Sinais
+	signal clear_reg_s      : std_logic;
 	signal pronto_med_s     : std_logic;
 	signal trigger_s        : std_logic;
 	signal write_stop       : std_logic;
@@ -200,6 +205,9 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 	signal last_pos         : std_logic;
 	signal last_pos_ed      : std_logic;
 	signal calibra          : std_logic;
+	signal ligar_servo      : std_logic;
+	signal fim_1s_s         : std_logic;
+	signal rst_hcsr         : std_logic;
 	signal agtb_vector      : std_logic_vector(3 downto 0);
 	signal altb_vector      : std_logic_vector(3 downto 0);
 	signal aeqb_vector      : std_logic_vector(3 downto 0);
@@ -216,9 +224,10 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 begin
 
 	-- Logica de sinais
-	clear_reg    <= reset or posiciona;
+	clear_reg_s  <= reset or clear_reg;
 	calibra      <= calibrando and last_pos_ed;
 	write_enable <= (calibrando and (not write_stop)) or write_en;
+	ligar_servo  <= posiciona;
 
 	-- Inicializacao
 	agtb_vector(0) <= '0';
@@ -259,12 +268,12 @@ begin
 	U2_MOV: movimentacao_servomotor 
 		port map(
 			-- Inputs
-			clock     => clock,
-			reset     => reset,
-			posiciona => posiciona,
+			clock => clock,
+			reset => reset,
+			ligar => ligar_servo,
 			-- Outputs
 			pwm      => pwm,
-			fim_1s   => fim_1s,
+			fim_1s   => fim_1s_s,
 			meio_1s  => meio_1s,
 			last_pos => last_pos,
 			posicao  => posicao_s
@@ -277,9 +286,11 @@ begin
 			reset => reset,
 			medir => medir,
 			echo  => echo,
+			timer => fim_1s_s,
 			-- Saidas
 			trigger => trigger,
 			pronto  => pronto_med_s,
+			erro    => erro,
 			medida  => distancia_hcsr, -- 3 digitos BCD
 			-- Debug
 			db_estado => estado_hcsr
@@ -325,7 +336,7 @@ begin
 		generic map(4)
 		port map(
 			clock  => clock,
-			clear  => clear_reg,
+			clear  => clear_reg_s,
 			enable => pronto_med_s,
 			D      => altb_vector,
 			Q      => altb_vector_reg
@@ -368,6 +379,7 @@ begin
 		);
 
 	-- Outputs
+	fim_1s             <= fim_1s_s;
 	dado_recebido      <= dado_recebido_s;
 	pronto_med         <= pronto_med_s;
 	posicao_servo      <= posicao_s;
