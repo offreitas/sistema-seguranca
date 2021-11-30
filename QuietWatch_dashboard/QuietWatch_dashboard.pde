@@ -19,7 +19,6 @@ import java.time.LocalDateTime;
 //Bibliotecas Processing
 import mqtt.*;
 import ddf.minim.*;
-import processing.pdf.*;
 
 //--------------------------------- Conexão MQTT --------------------------------------
 String user   = "grupo1-bancadaB5";
@@ -45,7 +44,6 @@ int altura = 600;
 PrintWriter QuietWatch_logger;
 Minim minim;
 AudioPlayer som_calibrando, som_alarme;
-PGraphicsPDF pdf;
 //-------------------------------------------------------------------------------------
 
 //----------------------------- Setup: executado uma vez ------------------------------
@@ -54,8 +52,6 @@ void setup() {
   size(960, 600);
   myFont = loadFont("myfont.vlw");
   smooth();
-  //setup pdf
-  pdf = (PGraphicsPDF) createGraphics(largura, altura, PDF, "printScreen_" + day() + "_" + month() + "_" + year() + "_horario_" + hour() + "_" + minute() + "_" + second() + ".pdf");
   //setup PrintWriter
   QuietWatch_logger = createWriter("QuietWatch_logs_" + day() + "_" + month() + "_" + year() + "_horario_" + hour() + "_" + minute() + "_" + second() + ".txt");
   QuietWatch_logger.println("Setup Processing " + day() + "/" + month() + "/" + year() + " horario " + hour() + ":" + minute() + ":" + second());
@@ -69,6 +65,12 @@ void setup() {
   clientID = new String("labead-mqtt-processing-" + random(0,100));
   println("clientID=" + clientID);
   client.connect("mqtt://" + user + ":" + passwd + "@" + broker + ":" + port, clientID, false);
+  // Garantir sinais zerados
+  client.publish(user + "/E0", "0");
+  client.publish(user + "/E1", "0");
+  client.publish(user + "/E2", "0");
+  client.publish(user + "/E3", "0");
+  client.publish(user + "/E4", "0");
 }
 //-------------------------------------------------------------------------------------
 
@@ -80,12 +82,6 @@ void draw() {
     // chama funcoes para desenhar painel do sistema de segurança
     drawCabecalho();
     drawQuadro();
-    // funcao printScreen
-    if(mousePressed){
-      beginRecord(pdf);
-    }else{
-      endRecord();
-    }
 }
 //-------------------------------------------------------------------------------------
 
@@ -183,7 +179,7 @@ void drawQuadro(){
     fill(0);
     text("sel_mux[1]", 400, 455);
   }
-  //-------------------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------------
   stroke(255,0,0);
   strokeWeight(5);
   line(500,100,500,510);
@@ -195,7 +191,9 @@ void drawQuadro(){
     textSize(12);
     fill(0);
     text("alerta on", 600, 155);
-    som_alarme.play();
+    if(estado_mode){//alarme eh tocado apenas no modo fora de casa
+      som_alarme.play();
+    }
   }else{
     stroke(#300A8B);
     fill(#B6BCB3);
@@ -279,8 +277,12 @@ void keyPressed() {
     estado_mode = !estado_mode;
     if(estado_mode){
       client.publish(user + "/E4", "1");
+      QuietWatch_logger.println("Modo Fora de Casa  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
     }else{
       client.publish(user + "/E4", "0");
+      QuietWatch_logger.println("Modo Em Casa  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
     }
   }
 }
@@ -289,14 +291,59 @@ void keyPressed() {
 //--------------------------------- Funções para MQTT ---------------------------------
 void clientConnected() {
   println("cliente conectado");
+  client.subscribe(user + "/E0");
+  client.subscribe(user + "/E1");
+  client.subscribe(user + "/E2");
+  client.subscribe(user + "/E3");
+  client.subscribe(user + "/E4");
   client.subscribe(user + "/S0");//alerta movimento
   client.subscribe(user + "/S1");//calibrando
 }
+
 void messageReceived(String topic, byte[] payload) {
-  char ultimoChar = topic.charAt(topic.length()-1);
   String dados = new String(payload);
   
-  if(ultimoChar == '0'){//mensagem veio de S0 (alerta_mov)
+  if(topic.endsWith("E0")){
+    if(Integer.parseInt(dados) == 1){
+      estado_reset = true;
+    }else{
+      estado_reset = false;
+    }
+  }
+  
+  if(topic.endsWith("E1")){
+    if(Integer.parseInt(dados) == 1){
+      estado_ligar = true;
+    }else{
+      estado_ligar = false;
+    }
+  }
+  
+  if(topic.endsWith("E2")){
+    if(Integer.parseInt(dados) == 1){
+      estado_selmux0 = true;
+    }else{
+      estado_selmux0 = false;
+    }
+  }
+  
+  if(topic.endsWith("E3")){
+    if(Integer.parseInt(dados) == 1){
+      estado_selmux1 = true;
+    }else{
+      estado_selmux1 = false;
+    }
+  }
+  
+  if(topic.endsWith("E4")){
+    if(Integer.parseInt(dados) == 1){
+      estado_mode = true;
+    }else{
+      estado_mode = false;
+    }
+  }
+  
+  if(topic.endsWith("S0")){//mensagem veio de S0 (alerta_mov)
     if(Integer.parseInt(dados) == 1){//alerta esta ativado
       estado_alerta = true;
       DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
@@ -307,7 +354,8 @@ void messageReceived(String topic, byte[] payload) {
       QuietWatch_logger.flush();
     }
   }
-  if(ultimoChar == '1'){//mensagem veio de S1 (calibrando)
+  
+  if(topic.endsWith("S1")){//mensagem veio de S1 (calibrando)
     if(Integer.parseInt(dados) == 1){//alerta esta ativado
       estado_calibrando = true;
       DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
@@ -324,4 +372,4 @@ void messageReceived(String topic, byte[] payload) {
 void connectionLost() {
   println("conexao perdida");
 }
-//-------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------
