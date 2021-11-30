@@ -29,6 +29,7 @@ entity sistema_seguranca is
 		db_medir           : out std_logic;
 		calibrando         : out std_logic;
 		alerta_mov         : out std_logic;
+		inserir_senha      : out std_logic;
 		db_mode            : out std_logic;
 		db_fim_2s          : out std_logic;
 		db_erro            : out std_logic;
@@ -59,6 +60,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			senha_ok   : in std_logic;
 			desarmar   : in std_logic;
 			erro       : in std_logic;
+			ligar_reg  : in std_logic;
 			-- Outputs
 			zera       : out std_logic;
 			posiciona  : out std_logic;
@@ -68,6 +70,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			write_en   : out std_logic;
 			alerta_out : out std_logic;
 			clear_reg  : out std_logic;
+			pede_senha : out std_logic;
 			db_estado  : out std_logic_vector(3 downto 0)
 		);
 	end component;
@@ -88,6 +91,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			calibrando  : in std_logic;
 			write_en    : in std_logic;
 			clear_reg   : in std_logic;
+			pede_senha  : in std_logic;
 			-- Outputs
 			pwm                         : out std_logic;
 			trigger                     : out std_logic;
@@ -99,6 +103,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			pronto_med                  : out std_logic;
 			fim_cal                     : out std_logic;
 			erro                        : out std_logic;
+			ligar_reg                   : out std_logic;
 			contagem_mux                : out std_logic_vector(2 downto 0);
 			estado_hcsr                 : out std_logic_vector(3 downto 0);
 			estado_tx_sistema_seguranca : out std_logic_vector(3 downto 0);
@@ -139,14 +144,14 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 	-- Sinais
 	signal pronto_tx_s                              : std_logic;
 	signal fim_1s_s, zera_s, reset_fd               : std_logic;
-	signal meio_1s_s						        : std_logic;
+	signal meio_1s_s, pede_senha_s                  : std_logic;
 	signal posiciona_s, medir_s                     : std_logic;
 	signal saida_serial_s, pwm_s                    : std_logic;
 	signal alerta_proximidade_s                     : std_logic;
 	signal transmitir_s, pronto_med_s               : std_logic;
 	signal fim_cal_s, calibrando_s, write_en_s      : std_logic;
 	signal trigger_s, mode_s, alerta_s              : std_logic;
-	signal erro_s, clear_reg_s                      : std_logic;
+	signal erro_s, clear_reg_s, ligar_reg_s         : std_logic;
 	signal contagem_mux_3bits                       : std_logic_vector(2 downto 0);
 	signal contagem_mux_4bits                       : std_logic_vector(3 downto 0);
 	signal sistema_seguranca_estado, posicao_4bits  : std_logic_vector(3 downto 0);
@@ -184,6 +189,7 @@ begin
 			senha_ok   => senha_ok,
 			desarmar   => desarmar,
 			erro       => erro_s,
+			ligar_reg  => ligar_reg_s,
 			-- Outputs
 			zera       => zera_s,
 			posiciona  => posiciona_s,
@@ -193,6 +199,7 @@ begin
 			write_en   => write_en_s,
 			alerta_out => alerta_s,
 			clear_reg  => clear_reg_s,
+			pede_senha => pede_senha_s,
 			db_estado  => sistema_seguranca_estado
 		);
 
@@ -211,6 +218,7 @@ begin
 			calibrando  => calibrando_s,
 			write_en    => write_en_s,
 			clear_reg   => clear_reg_s,
+			pede_senha  => pede_senha_s, 
 			-- Outputs
 			pwm                         => pwm_s,
 			trigger                     => trigger_s,
@@ -222,6 +230,7 @@ begin
 			pronto_med                  => pronto_med_s,
 			fim_cal                     => fim_cal_s,
 			erro                        => erro_s,
+			ligar_reg                   => ligar_reg_s,
 			contagem_mux                => contagem_mux_3bits,
 			estado_hcsr                 => estado_hcsr,
 			estado_tx_sistema_seguranca => estado_tx_sistema_seguranca,
@@ -328,7 +337,7 @@ begin
 
 	calibrando <= calibrando_s;
 
-	alerta_mov <= alerta_s;
+	alerta_mov <= alerta_s or (alerta_proximidade_s and (not calibrando_s));
 	
 	saida_serial      <= saida_serial_s;
 	saida_serial_ch   <= saida_serial_s;
@@ -336,6 +345,8 @@ begin
 	
 	alerta_proximidade <= alerta_proximidade_s;
 	alerta_prox_mqtt   <= alerta_proximidade_s;
+
+	inserir_senha <= pede_senha_s;
 
 	db_medir   <= medir_s;
 	db_trigger <= trigger_s;

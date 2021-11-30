@@ -17,6 +17,7 @@ entity sistema_seguranca_uc is
         senha_ok   : in std_logic;
         desarmar   : in std_logic;
         erro       : in std_logic;
+        ligar_reg  : in std_logic;
         -- Outputs
         zera       : out std_logic;
         posiciona  : out std_logic;
@@ -26,6 +27,7 @@ entity sistema_seguranca_uc is
         write_en   : out std_logic;
         alerta_out : out std_logic;
         clear_reg  : out std_logic;
+        pede_senha : out std_logic;
         db_estado  : out std_logic_vector(3 downto 0)
     );
 end entity;
@@ -52,9 +54,9 @@ begin
         if reset = '1' then
             Eatual <= idle;
         elsif erro = '1' then
-            Eatual <= idle;
-        elsif ligar = '0' then
-            Eatual <= idle;
+            Eatual <= preparacao;
+        elsif (ligar_reg = '1' and ligar = '0') then
+            Eatual <= desarmar_auth;
         elsif clock'event and clock = '1' then
             Eatual <= Eprox;
         end if;
@@ -66,22 +68,20 @@ begin
         case Eatual is
             when idle => 
                 if ligar = '1' then
-                    Eprox <= preparacao;
+                    Eprox <= ligar_auth;
                 else
                     Eprox <= idle;
                 end if;
-
-            -- when preparacao => Eprox <= cal_medida;
-
-            when preparacao => Eprox <= ligar_auth;
-
+            
             -- Armar
             when ligar_auth =>
                 if senha_ok = '1' then
-                    Eprox <= cal_medida;
+                    Eprox <= preparacao;
                 else
                     Eprox <= ligar_auth;
                 end if;
+
+            when preparacao => Eprox <= cal_medida;
 
             -- Calibracao
             when cal_medida => Eprox <= cal_espera;
@@ -142,8 +142,6 @@ begin
                 else
                     Eprox <= transmissao;
                 end if;
-					 
-            -- when detectado => Eprox <= detectado;
 
             when detectado =>
                 if desarmar = '1' then
@@ -209,6 +207,12 @@ begin
 
     with Eatual select
         clear_reg <= '1' when localizacao, '0' when others;
+
+    with Eatual select
+        pede_senha <=
+            '1' when ligar_auth,
+            '1' when desarmar_auth,
+            '0' when others;
             
     -- Debug
     with Eatual select
