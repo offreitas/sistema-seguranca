@@ -18,6 +18,7 @@ entity sistema_seguranca_fd is
 		calibrando  : in std_logic;
 		write_en    : in std_logic;
 		clear_reg   : in std_logic;
+		pede_senha  : in std_logic;
 		-- Outputs
 		pwm                         : out std_logic;
 		trigger                     : out std_logic;
@@ -29,6 +30,7 @@ entity sistema_seguranca_fd is
 		pronto_med                  : out std_logic;
 		fim_cal                     : out std_logic;
 		erro                        : out std_logic;
+		ligar_reg                   : out std_logic;
 		contagem_mux                : out std_logic_vector(2 downto 0);
 		estado_hcsr                 : out std_logic_vector(3 downto 0);
 		estado_tx_sistema_seguranca : out std_logic_vector(3 downto 0);
@@ -208,6 +210,9 @@ architecture sistema_seguranca_fd_arch of sistema_seguranca_fd is
 	signal ligar_servo      : std_logic;
 	signal fim_1s_s         : std_logic;
 	signal rst_hcsr         : std_logic;
+	signal clear_ligar      : std_logic;
+	signal ligar_vec        : std_logic_vector(0 downto 0);
+	signal ligar_reg_s      : std_logic_vector(0 downto 0);
 	signal agtb_vector      : std_logic_vector(3 downto 0);
 	signal altb_vector      : std_logic_vector(3 downto 0);
 	signal aeqb_vector      : std_logic_vector(3 downto 0);
@@ -228,6 +233,7 @@ begin
 	calibra      <= calibrando and last_pos_ed;
 	write_enable <= (calibrando and (not write_stop)) or write_en;
 	ligar_servo  <= posiciona;
+	clear_ligar  <= zera or pede_senha;
 
 	-- Inicializacao
 	agtb_vector(0) <= '0';
@@ -237,6 +243,8 @@ begin
 	carry(0) <= '1';
 
 	sensibilidade <= not B"0000_0000_0010";
+
+	ligar_vec(0) <= ligar;
 
 	-- Instancias
     U1_TX: tx_dados
@@ -378,6 +386,18 @@ begin
             output => last_pos_ed
 		);
 
+	U11_RL: registrador_n
+		generic map(1)
+		port map(
+			-- Inputs
+			clock  => clock,
+			clear  => clear_ligar,
+			enable => calibrando,
+			D      => ligar_vec,
+			-- Output
+			Q => ligar_reg_s
+		);
+
 	-- Outputs
 	fim_1s             <= fim_1s_s;
 	dado_recebido      <= dado_recebido_s;
@@ -389,5 +409,6 @@ begin
 	fim_cal            <= write_stop;
 	alerta_proximidade <= altb_vector_reg(3);
 	dist_mais_sens     <= dist_sens;
+	ligar_reg          <= ligar_reg_s(0);
 
 end architecture;
