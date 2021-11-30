@@ -20,29 +20,20 @@ No modo de alerta é ativado um ***buzzer***. O alerta também pode ser visto no
 
 Para detectar o movimento, o sistema deve considerar também a ***imprecisão da medição*** e a ***condição do ambiente*** para gerar a sensibilidade do sensor. 
 
-Caso o ambiente seja fechado e estático, uma variação pequena de medição deve ativar o modo de alerta, mas caso seja um cômodo largo por exemplo, a sensibilidade deve ser ajustada para que o sistema não entre em modo alerta com pequenas variações.
-
-Dessa forma, o projeto possui um sinal de entrada ***nivel_sensibilidade*** que determina a variação de posição mínima para ativação do modo de alerta.
-
-|  Ambiente   |   nivel_sensibilidade   | variação mínima |
-| ----------- | ----------------------- | --------------- |
-| Banheiro    |           00            |      10cm       |
-| Quarto      |           01            |      30cm       |
-| Sala        |           10            |      50cm       |
-| Salão       |           11            |      100cm      |
+Dessa forma, foi para uma dada medida é definido um intervalo de sensibilidade onde a variação não é considerada suficiente para acionar o alerta.
 
 ### Requisitos Físicos
 
-A princípio, são necessários os componentes do ***Kit Home Lab*** que irão interagir com a infraestrutura física do ***Lab EAD*** da disciplina Laboratório Digital II. Como o sonar será reaproveitado para o projeto do grupo, precisa-se do ***servomotor SG90*** e do ***sensor HC-SR04***, além da ***placa Wemos D1 R1*** que possui o componente ***ESP8266***. Para intermediar a comunicação com a FPGA do laboratório, o aplicativo ***MQTT Dash*** será usado.
+A princípio, são necessários os componentes do ***Kit Home Lab*** que irão interagir com a infraestrutura física do ***Lab EAD*** da disciplina Laboratório Digital II. Como o sonar será reaproveitado para o projeto do grupo, precisa-se do ***servomotor SG90*** e do ***sensor HC-SR04***, além da ***placa Wemos D1 R1*** que possui o componente ***ESP8266***.
+
+A funcionalidade de senha foi implementada usando Arduino, portanto é exclusiva do kitHome. Para possibilitar demonstrações na infraestrutura do LabEAD é possível desativar a funcionalidade de senha com um sinal de entrada. Nesse modo de teste, não é necessária a interação com Arduino. O DashBoard Processing e o Notebook Google Colab operam nesse modo de teste.
+
+Para intermediar a comunicação com a FPGA do laboratório, também é possível usar o aplicativo ***MQTT Dash***.
 
 ### Implementação
 
 ![Pseudocódigo](algoritmo_semana1.png)
 
-#### sistema_seguranca:  Unidade de Controle
+#### Persistência de dados de eventos
 
-![Unidade de Controle](diagrama_uc.png)
-
-#### Transmissão do horário de detecção
-
-Para transmissão do horário de detecção será feita uma integração com um script em python que passa o horário atualizado para a UART.
+O DashBoard Processing armazena todos os dados de sua sessão em arquivo txt.

@@ -1,32 +1,35 @@
-//------------------------------Laboratorio Digital II---------------------------------
-// Projeto: Sistema de Segurança (T3BB5)
+//--------------------------Laboratorio Digital II-----------------------------
+// Projeto: QuietWatch (T3BB5)
 // Gabriel Pereira de Carvalho
 // Otávio Felipe de Freitas
 // Willian Abe Fukushima
-//-------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 // Para interagir com interface, são utilizados comandos de teclado (PUBLISH)
 // l = entrada ligar
 // r = entrada reset
 // m = entrada mode
 // x = entrada sel_mux[0]
 // y = entrada sel_mux[1]
-//-------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
+//Bibliotecas Java
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;  
-import java.time.LocalDateTime;   
+import java.time.LocalDateTime;
+//Bibliotecas Processing
 import mqtt.*;
+import ddf.minim.*;
 
-//--------------------------------- Conexão MQTT --------------------------------------
+//----------------------------- Conexão MQTT ----------------------------------
 String user   = "grupo1-bancadaB5";
 String passwd = "L%40Bdygy1B5";      // manter %40
 String broker = "3.141.193.238";     
 String port   = "80";
 MQTTClient client;
 String clientID;
-//-------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
-//------------------------------------ Variaveis --------------------------------------
+//-------------------------------- Variaveis ----------------------------------
 int whichKey = -1;  // variavel mantem tecla acionada
 Boolean estado_ligar = false;
 Boolean estado_mode = false;
@@ -38,23 +41,40 @@ Boolean estado_calibrando = false;
 PFont myFont;
 int largura = 960;
 int altura = 600;
-//-------------------------------------------------------------------------------------
+PrintWriter QuietWatch_logger;
+Minim minim;
+AudioPlayer som_calibrando, som_alarme;
+//-----------------------------------------------------------------------------
 
-//----------------------------- Setup: executado uma vez ------------------------------
+//------------------------- Setup: executado uma vez --------------------------
 void setup() {
   // Tamanho do quadro
   size(960, 600);
   myFont = loadFont("myfont.vlw");
   smooth();
+  //setup PrintWriter
+  QuietWatch_logger = createWriter("QuietWatch_logs_" + day() + "_" + month() + "_" + year() + "_horario_" + hour() + "_" + minute() + "_" + second() + ".txt");
+  QuietWatch_logger.println("Setup Processing " + day() + "/" + month() + "/" + year() + " horario " + hour() + ":" + minute() + ":" + second());
+  QuietWatch_logger.flush();
+  // setup Minim
+  minim = new Minim(this);
+  som_calibrando = minim.loadFile("som_calibrando.mp3");
+  som_alarme = minim.loadFile("som_alarme.mp3");
   // Conectar com MQTT
   client = new MQTTClient(this);
   clientID = new String("labead-mqtt-processing-" + random(0,100));
   println("clientID=" + clientID);
   client.connect("mqtt://" + user + ":" + passwd + "@" + broker + ":" + port, clientID, false);
+  // Garantir sinais zerados
+  client.publish(user + "/E0", "0");
+  client.publish(user + "/E1", "0");
+  client.publish(user + "/E2", "0");
+  client.publish(user + "/E3", "0");
+  client.publish(user + "/E4", "0");
 }
-//-------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
-//--------------------------- Draw: executado continuamente ---------------------------
+//----------------------- Draw: executado continuamente -----------------------
 void draw() { 
     cursor(HAND);
     textFont(myFont);
@@ -63,7 +83,7 @@ void draw() {
     drawCabecalho();
     drawQuadro();
 }
-//-------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
 
 void drawCabecalho() {
@@ -93,7 +113,7 @@ void drawQuadro(){
   stroke(#300A8B);
   fill(#868489);
   rect(250, 100, 500, 410);
-//------------------------------- Widgets para Inputs --------------------------------
+//--------------------------- Widgets para Inputs ----------------------------
   if(estado_ligar){//l de ligar
     fill(#FF0303);
     ellipse(350, 150, 70, 70);
@@ -110,7 +130,7 @@ void drawQuadro(){
   if(estado_mode){// m de mode
     fill(#FF0303);
     ellipse(350, 250, 70, 70);
-    textSize(12);
+    textSize(11);
     fill(0);
     text("Fora de Casa", 350, 255);
   }else{
@@ -159,11 +179,11 @@ void drawQuadro(){
     fill(0);
     text("sel_mux[1]", 400, 455);
   }
-  //-------------------------------------------------------------------------------------
+  //---------------------------------------------------------------------------
   stroke(255,0,0);
   strokeWeight(5);
   line(500,100,500,510);
-  //------------------------------ Widgets para Outputs -------------------------------
+  //-------------------------- Widgets para Outputs ---------------------------
   if(estado_alerta){
     stroke(#300A8B);
     fill(#FF0303);
@@ -171,6 +191,9 @@ void drawQuadro(){
     textSize(12);
     fill(0);
     text("alerta on", 600, 155);
+    if(estado_mode){//alarme eh tocado apenas no modo fora de casa
+      som_alarme.play();
+    }
   }else{
     stroke(#300A8B);
     fill(#B6BCB3);
@@ -178,6 +201,7 @@ void drawQuadro(){
     textSize(12);
     fill(0);
     text("alerta off", 600, 155);
+    som_alarme.pause();
   }
   if(estado_calibrando){
     stroke(#300A8B);
@@ -186,6 +210,7 @@ void drawQuadro(){
     textSize(12);
     fill(0);
     text("calibrando...", 600, 255);
+    som_calibrando.play();
   }else{
     stroke(#300A8B);
     if(estado_ligar){
@@ -198,11 +223,17 @@ void drawQuadro(){
       fill(#B6BCB3);
       ellipse(600, 250, 70, 70);
     }
+    som_calibrando.pause();
   }
-  //-------------------------------------------------------------------------------------
+  //-----------------------------------------------------------------------------
+  String dispTime = "Hora: " + hour() + ":" + minute() + ":" + second();
+  fill(0);
+  rect(605, 485, 85, 20);
+  fill(#B6BCB3);
+  text(dispTime, 650, 500);
 }
 
-//---------------------- keyPressed: processa entrada por teclado ---------------------
+//------------------- keyPressed: processa entrada por teclado ------------------
 // funcao keyPressed - processa tecla acionada
 void keyPressed() {
   whichKey = key;
@@ -210,6 +241,8 @@ void keyPressed() {
     estado_reset = !estado_reset;
     if(estado_reset){
       client.publish(user + "/E0", "1");
+      QuietWatch_logger.println("Reset  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
     }else{
       client.publish(user + "/E0", "0");
     }
@@ -218,6 +251,8 @@ void keyPressed() {
     estado_ligar = !estado_ligar;
     if(estado_ligar){
       client.publish(user + "/E1", "1");
+      QuietWatch_logger.println("Ligar  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
     }else{
       client.publish(user + "/E1", "0");
     }
@@ -242,36 +277,101 @@ void keyPressed() {
     estado_mode = !estado_mode;
     if(estado_mode){
       client.publish(user + "/E4", "1");
+      QuietWatch_logger.println("Modo Fora de Casa  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
     }else{
       client.publish(user + "/E4", "0");
+      QuietWatch_logger.println("Modo Em Casa  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
     }
   }
 }
-//-------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------
 
-//--------------------------------- Funções para MQTT ---------------------------------
+//----------------------------- Funções para MQTT -----------------------------
 void clientConnected() {
   println("cliente conectado");
+  client.subscribe(user + "/E0");
+  client.subscribe(user + "/E1");
+  client.subscribe(user + "/E2");
+  client.subscribe(user + "/E3");
+  client.subscribe(user + "/E4");
   client.subscribe(user + "/S0");//alerta movimento
   client.subscribe(user + "/S1");//calibrando
 }
+
 void messageReceived(String topic, byte[] payload) {
-  char ultimoChar = topic.charAt(topic.length()-1);
   String dados = new String(payload);
   
-  if(ultimoChar == '0'){//mensagem veio de S0 (alerta_mov)
+  if(topic.endsWith("E0")){
+    if(Integer.parseInt(dados) == 1){
+      QuietWatch_logger.println("Recebido Reset  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
+      estado_reset = true;
+    }else{
+      estado_reset = false;
+    }
+  }
+  
+  if(topic.endsWith("E1")){
+    if(Integer.parseInt(dados) == 1){
+      QuietWatch_logger.println("Recebido Ligar  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
+      estado_ligar = true;
+    }else{
+      estado_ligar = false;
+    }
+  }
+  
+  if(topic.endsWith("E2")){
+    if(Integer.parseInt(dados) == 1){
+      estado_selmux0 = true;
+    }else{
+      estado_selmux0 = false;
+    }
+  }
+  
+  if(topic.endsWith("E3")){
+    if(Integer.parseInt(dados) == 1){
+      estado_selmux1 = true;
+    }else{
+      estado_selmux1 = false;
+    }
+  }
+  
+  if(topic.endsWith("E4")){
+    if(Integer.parseInt(dados) == 1){
+      QuietWatch_logger.println("Recebido Modo Fora de Casa  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
+      estado_mode = true;
+    }else{
+      QuietWatch_logger.println("Recebido Modo Em Casa  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
+      estado_mode = false;
+    }
+  }
+  
+  if(topic.endsWith("S0")){//mensagem veio de S0 (alerta_mov)
     if(Integer.parseInt(dados) == 1){//alerta esta ativado
       estado_alerta = true;
       DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
       LocalDateTime now = LocalDateTime.now(); 
       println("ALERTA DE MOVIMENTO : " + dtf.format(now));
-    }else{
-      estado_alerta = false;
+      // persistir mensagem de evento "ALERTA DE MOVIMENTO"
+      QuietWatch_logger.println("ALERTA DE MOVIMENTO  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
     }
   }
-  if(ultimoChar == '1'){//mensagem veio de S1 (calibrando)
+  
+  if(topic.endsWith("S1")){//mensagem veio de S1 (calibrando)
     if(Integer.parseInt(dados) == 1){//alerta esta ativado
       estado_calibrando = true;
+      DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
+      LocalDateTime now = LocalDateTime.now(); 
+      println("Calibrando : " + dtf.format(now));
+      // persistir mensagem de evento "Calibrando"
+      QuietWatch_logger.println("Calibrando  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
     }else{
       estado_calibrando = false;
     }
@@ -280,4 +380,4 @@ void messageReceived(String topic, byte[] payload) {
 void connectionLost() {
   println("conexao perdida");
 }
-//-------------------------------------------------------------------------------------
+//---------------------------------------------------------------------------
