@@ -1,0 +1,7 @@
+Setup Processing 29/11/2021 horario 8:36:59
+Reset  8:37:4
+Ligar  8:37:7
+Calibrando  8:37:8
+Modo Fora de Casa  8:37:32
+Modo Em Casa  9:2:22
+Reset  9:2:23

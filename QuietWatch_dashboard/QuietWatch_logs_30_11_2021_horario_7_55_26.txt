@@ -1,0 +1,5 @@
+Setup Processing 30/11/2021 horario 7:55:26
+Recebido Reset  7:55:30
+Recebido Ligar  7:55:31
+Recebido Modo Fora de Casa  7:55:35
+Recebido Modo Em Casa  7:55:35

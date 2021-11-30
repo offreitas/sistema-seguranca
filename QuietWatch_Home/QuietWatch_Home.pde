@@ -8,8 +8,7 @@
 // l = entrada ligar
 // r = entrada reset
 // m = entrada mode
-// x = entrada sel_mux[0]
-// y = entrada sel_mux[1]
+// d = entrada desarmar
 //-----------------------------------------------------------------------------
 
 //Bibliotecas Java
@@ -38,6 +37,9 @@ Boolean estado_selmux0 = false;
 Boolean estado_selmux1 = false;
 Boolean estado_alerta = false;
 Boolean estado_calibrando = false;
+Boolean estado_desarmar = false;
+Boolean estado_senha = false;
+String senha = "";
 PFont myFont;
 int largura = 960;
 int altura = 600;
@@ -66,12 +68,10 @@ void setup() {
   println("clientID=" + clientID);
   client.connect("mqtt://" + user + ":" + passwd + "@" + broker + ":" + port, clientID, false);
   // Garantir sinais zerados
-  client.publish(user + "/E0", "0");
-  client.publish(user + "/E1", "0");
-  client.publish(user + "/E2", "0");
-  client.publish(user + "/E3", "0");
-  client.publish(user + "/E4", "0");
-  client.publish(user + "/E5", "0");//modo teste (pular senha)
+  client.publish(user + "/E0home", "0");//reset
+  client.publish(user + "/E1home", "0");//ligar
+  client.publish(user + "/E2home", "0");//mode
+  client.publish(user + "/E3home", "0");//desarmar
 }
 //-----------------------------------------------------------------------------
 
@@ -103,11 +103,11 @@ void drawCabecalho() {
     textAlign(CENTER);
     textSize(15);
     fill(0);
-    text("x,y: E2,E3 (sel_mux)", 10, 70, largura, altura);
+    text("m: E2 (modo 0 'em casa' ou 1 'fora de casa')", 10, 70, largura, altura);
     textAlign(CENTER);
     textSize(15);
     fill(0);
-    text("m: E4 (modo 0 'em casa' ou 1 'fora de casa')", 10, 85, largura, altura);
+    text("d: E3 (desarmar)", 10, 85, largura, altura);
     
 }
 void drawQuadro(){
@@ -154,32 +154,20 @@ void drawQuadro(){
     fill(0);
     text("reset", 350, 355);
   }
-  if(estado_selmux0){//x de sel_mux[0] (E2)
+  if(estado_desarmar){// d de desarmar(E3)
     fill(#FF0303);
-    ellipse(300, 450, 70, 70);
-    textSize(12);
+    ellipse(350, 450, 70, 70);
+    textSize(10);
     fill(0);
-    text("sel_mux[0]", 300, 455);
+    text("Aguardando", 350, 455);//E3 = 1
   }else{
     fill(#B6BCB3);
-    ellipse(300, 450, 70, 70);
+    ellipse(350, 450, 70, 70);
     textSize(12);
     fill(0);
-    text("sel_mux[0]", 300, 455);
+    text("Desarmar", 350, 455);//E3 = 0
   }
-  if(estado_selmux1){//y de sel_mux[1] (E3)
-    fill(#FF0303);
-    ellipse(400, 450, 70, 70);
-    textSize(12);
-    fill(0);
-    text("sel_mux[1]", 400, 455);
-  }else{
-    fill(#B6BCB3);
-    ellipse(400, 450, 70, 70);
-    textSize(12);
-    fill(0);
-    text("sel_mux[1]", 400, 455);
-  }
+  
   //---------------------------------------------------------------------------
   stroke(255,0,0);
   strokeWeight(5);
@@ -192,17 +180,13 @@ void drawQuadro(){
     textSize(12);
     fill(0);
     text("alerta on", 600, 155);
-    if(estado_mode){//alarme eh tocado apenas no modo fora de casa
-      som_alarme.play();
-    }
   }else{
     stroke(#300A8B);
-    fill(#B6BCB3);
+    fill(#00FF12);
     ellipse(600, 150, 70, 70);
     textSize(12);
     fill(0);
     text("alerta off", 600, 155);
-    som_alarme.pause();
   }
   if(estado_calibrando){
     stroke(#300A8B);
@@ -211,20 +195,33 @@ void drawQuadro(){
     textSize(12);
     fill(0);
     text("calibrando...", 600, 255);
-    som_calibrando.play();
   }else{
+    //stroke(#300A8B);
+    //if(estado_ligar){
+    //  fill(#00FF12);
+    //  ellipse(600, 250, 70, 70);
+    //  textSize(12);
+    //  fill(0);
+    //  text("calibrado", 600, 255);
+    //}else{
+    //  fill(#B6BCB3);
+    //  ellipse(600, 250, 70, 70);
+    //}
+  }
+  if(estado_senha){
     stroke(#300A8B);
-    if(estado_ligar){
-      fill(#00FF12);
-      ellipse(600, 250, 70, 70);
-      textSize(12);
-      fill(0);
-      text("calibrado", 600, 255);
-    }else{
-      fill(#B6BCB3);
-      ellipse(600, 250, 70, 70);
-    }
-    som_calibrando.pause();
+    fill(#FF0303);
+    ellipse(600, 370, 100, 100);
+    textSize(12);
+    fill(0);
+    text("INSERIR SENHA", 600, 375);
+  }else{
+    //stroke(#300A8B);
+    //fill(#B6BCB3);
+    //ellipse(600, 370, 100, 100);
+    //textSize(12);
+    //fill(0);
+    //text("", 600, 155);
   }
   //-----------------------------------------------------------------------------
   String dispTime = "Hora: " + hour() + ":" + minute() + ":" + second();
@@ -238,52 +235,60 @@ void drawQuadro(){
 // funcao keyPressed - processa tecla acionada
 void keyPressed() {
   whichKey = key;
-  if(whichKey == 114){
-    estado_reset = !estado_reset;
-    if(estado_reset){
-      client.publish(user + "/E0", "1");
-      QuietWatch_logger.println("Reset  " + hour() + ":" + minute() + ":" + second());
+  if(estado_senha){
+    String key_char = str((char) whichKey);
+    senha += key_char;
+    if(senha.length() == 4){
+      println("SENHA ENVIADA " + senha);
+      QuietWatch_logger.println("SENHA ENVIADA  " + senha);
       QuietWatch_logger.flush();
-    }else{
-      client.publish(user + "/E0", "0");
+      client.publish(user + "/RXhome", senha);
+      senha = "";
     }
-  }
-  if(whichKey == 108){
-    estado_ligar = !estado_ligar;
-    if(estado_ligar){
-      client.publish(user + "/E1", "1");
-      QuietWatch_logger.println("Ligar  " + hour() + ":" + minute() + ":" + second());
-      QuietWatch_logger.flush();
-    }else{
-      client.publish(user + "/E1", "0");
+  }else{
+    if(whichKey == 114){
+      estado_reset = !estado_reset;
+      if(estado_reset){
+        client.publish(user + "/E0home", "1");
+        QuietWatch_logger.println("Reset  " + hour() + ":" + minute() + ":" + second());
+        QuietWatch_logger.flush();
+      }else{
+        client.publish(user + "/E0home", "0");
+      }
     }
-  }
-  if(whichKey == 120){
-    estado_selmux0 = !estado_selmux0;
-    if(estado_selmux0){
-      client.publish(user + "/E2", "1");
-    }else{
-      client.publish(user + "/E2", "0");
+    if(whichKey == 108){
+      estado_ligar = !estado_ligar;
+      if(estado_ligar){
+        client.publish(user + "/E1home", "1");
+        QuietWatch_logger.println("Ligar  " + hour() + ":" + minute() + ":" + second());
+        QuietWatch_logger.flush();
+      }else{
+        client.publish(user + "/E1home", "0");
+      }
     }
-  }
-  if(whichKey == 121){
-    estado_selmux1 = !estado_selmux1;
-    if(estado_selmux1){
-      client.publish(user + "/E3", "1");
-    }else{
-      client.publish(user + "/E3", "0");
+    if(whichKey == 109){
+      estado_mode = !estado_mode;
+      if(estado_mode){
+        client.publish(user + "/E2home", "1");
+        QuietWatch_logger.println("Modo Fora de Casa  " + hour() + ":" + minute() + ":" + second());
+        QuietWatch_logger.flush();
+      }else{
+        client.publish(user + "/E2home", "0");
+        QuietWatch_logger.println("Modo Em Casa  " + hour() + ":" + minute() + ":" + second());
+        QuietWatch_logger.flush();
+      }
     }
-  }
-  if(whichKey == 109){
-    estado_mode = !estado_mode;
-    if(estado_mode){
-      client.publish(user + "/E4", "1");
-      QuietWatch_logger.println("Modo Fora de Casa  " + hour() + ":" + minute() + ":" + second());
-      QuietWatch_logger.flush();
-    }else{
-      client.publish(user + "/E4", "0");
-      QuietWatch_logger.println("Modo Em Casa  " + hour() + ":" + minute() + ":" + second());
-      QuietWatch_logger.flush();
+    if(whichKey == 100){
+      estado_desarmar = !estado_desarmar;
+      if(estado_mode){
+        client.publish(user + "/E3home", "1");
+        QuietWatch_logger.println("Desarmado  " + hour() + ":" + minute() + ":" + second());
+        QuietWatch_logger.flush();
+      }else{
+        client.publish(user + "/E3home", "0");
+        QuietWatch_logger.println("Armado  " + hour() + ":" + minute() + ":" + second());
+        QuietWatch_logger.flush();
+      }
     }
   }
 }
@@ -292,19 +297,19 @@ void keyPressed() {
 //----------------------------- Funções para MQTT -----------------------------
 void clientConnected() {
   println("cliente conectado");
-  client.subscribe(user + "/E0");
-  client.subscribe(user + "/E1");
-  client.subscribe(user + "/E2");
-  client.subscribe(user + "/E3");
-  client.subscribe(user + "/E4");
-  client.subscribe(user + "/S0");//alerta movimento
-  client.subscribe(user + "/S1");//calibrando
+  client.subscribe(user + "/E0home");
+  client.subscribe(user + "/E1home");
+  client.subscribe(user + "/E2home");
+  client.subscribe(user + "/E3home");
+  client.subscribe(user + "/S0home");//alerta movimento
+  client.subscribe(user + "/S1home");//calibrando
+  client.subscribe(user + "/S2home");//senha
 }
 
 void messageReceived(String topic, byte[] payload) {
   String dados = new String(payload);
   
-  if(topic.endsWith("E0")){
+  if(topic.endsWith("E0home")){
     if(Integer.parseInt(dados) == 1){
       QuietWatch_logger.println("Recebido Reset  " + hour() + ":" + minute() + ":" + second());
       QuietWatch_logger.flush();
@@ -314,7 +319,7 @@ void messageReceived(String topic, byte[] payload) {
     }
   }
   
-  if(topic.endsWith("E1")){
+  if(topic.endsWith("E1home")){
     if(Integer.parseInt(dados) == 1){
       QuietWatch_logger.println("Recebido Ligar  " + hour() + ":" + minute() + ":" + second());
       QuietWatch_logger.flush();
@@ -324,23 +329,7 @@ void messageReceived(String topic, byte[] payload) {
     }
   }
   
-  if(topic.endsWith("E2")){
-    if(Integer.parseInt(dados) == 1){
-      estado_selmux0 = true;
-    }else{
-      estado_selmux0 = false;
-    }
-  }
-  
-  if(topic.endsWith("E3")){
-    if(Integer.parseInt(dados) == 1){
-      estado_selmux1 = true;
-    }else{
-      estado_selmux1 = false;
-    }
-  }
-  
-  if(topic.endsWith("E4")){
+  if(topic.endsWith("E2home")){
     if(Integer.parseInt(dados) == 1){
       QuietWatch_logger.println("Recebido Modo Fora de Casa  " + hour() + ":" + minute() + ":" + second());
       QuietWatch_logger.flush();
@@ -351,30 +340,64 @@ void messageReceived(String topic, byte[] payload) {
       estado_mode = false;
     }
   }
-  
-  if(topic.endsWith("S0")){//mensagem veio de S0 (alerta_mov)
-    if(Integer.parseInt(dados) == 1){//alerta esta ativado
-      estado_alerta = true;
-      DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
-      LocalDateTime now = LocalDateTime.now(); 
-      println("ALERTA DE MOVIMENTO : " + dtf.format(now));
-      // persistir mensagem de evento "ALERTA DE MOVIMENTO"
-      QuietWatch_logger.println("ALERTA DE MOVIMENTO  " + hour() + ":" + minute() + ":" + second());
+  if(topic.endsWith("E3home")){
+    if(Integer.parseInt(dados) == 1){
+      QuietWatch_logger.println("Recebido Desarmado  " + hour() + ":" + minute() + ":" + second());
       QuietWatch_logger.flush();
+      estado_desarmar = true;
+    }else{
+      QuietWatch_logger.println("Recebido Armado  " + hour() + ":" + minute() + ":" + second());
+      QuietWatch_logger.flush();
+      estado_desarmar = false;
     }
   }
   
-  if(topic.endsWith("S1")){//mensagem veio de S1 (calibrando)
+  if(topic.endsWith("S0home")){//mensagem veio de S0 (alerta_mov)
     if(Integer.parseInt(dados) == 1){//alerta esta ativado
-      estado_calibrando = true;
       DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
-      LocalDateTime now = LocalDateTime.now(); 
-      println("Calibrando : " + dtf.format(now));
-      // persistir mensagem de evento "Calibrando"
-      QuietWatch_logger.println("Calibrando  " + hour() + ":" + minute() + ":" + second());
-      QuietWatch_logger.flush();
+      LocalDateTime now = LocalDateTime.now();
+      if(estado_alerta == false){
+        println("ALERTA DE MOVIMENTO : " + dtf.format(now));
+        QuietWatch_logger.println("ALERTA DE MOVIMENTO  " + hour() + ":" + minute() + ":" + second());
+        QuietWatch_logger.flush();
+        if(estado_mode){
+          som_alarme.play();
+        }
+        estado_alerta = true;
+      }
+    }else{
+      estado_alerta = false;
+      som_alarme.pause();
+    }
+  }
+  
+  if(topic.endsWith("S1home")){//mensagem veio de S1 (calibrando)
+    if(Integer.parseInt(dados) == 1){//alerta esta ativado
+      DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
+      LocalDateTime now = LocalDateTime.now();
+      if(estado_calibrando == false){
+        println("Calibrando : " + dtf.format(now));
+        QuietWatch_logger.println("Calibrando  " + hour() + ":" + minute() + ":" + second());
+        QuietWatch_logger.flush();
+        estado_calibrando = true;
+      }
     }else{
       estado_calibrando = false;
+    }
+  }
+    
+  if(topic.endsWith("S2home")){//mensagem veio de S2
+    if(Integer.parseInt(dados) == 1){
+      DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss");  
+      LocalDateTime now = LocalDateTime.now();
+      if(estado_senha == false){
+        println("Senha : " + dtf.format(now));
+        QuietWatch_logger.println("Inserir Senha  " + hour() + ":" + minute() + ":" + second());
+        QuietWatch_logger.flush();
+        estado_senha = true;
+      }
+    }else{
+      estado_senha = false;
     }
   }
 }
