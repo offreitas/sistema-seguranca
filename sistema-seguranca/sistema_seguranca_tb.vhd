@@ -2,10 +2,10 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-entity sonar_tb is
+entity sistema_seguranca_tb is
 end entity;
 
-architecture tb of sonar_tb is
+architecture tb of sistema_seguranca_tb is
     -- Inputs
     signal clock_in   : std_logic := '0';
     signal reset_in   : std_logic := '0';
@@ -50,7 +50,7 @@ begin
     clock_in <= (not clock_in) and keep_simulating after clockPeriod/2;
 
     -- Instancia
-    DUT: entity work.sonar (sonar_arch)
+    DUT: entity work.sistema_seguranca (sistema_seguranca_arch)
         port map(
             -- Inputs
             clock   => clock_in,
