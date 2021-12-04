@@ -74,15 +74,19 @@ architecture hcsr04_arch of interface_hcsr04 is
     -- SINAIS
     signal fim_med_s, tick            : std_logic;
     signal zera_s, gera_s, registra_s : std_logic;
+    signal reset_uc, reset_fd, erro_s : std_logic;
 
 begin
+    -- Logica de sinais
+    reset_uc <= reset or erro_s;
+    reset_fd <= reset or zera_s or erro_s;
 
     -- INSTANCIAS
     U1: interface_hcsr04_uc 
         port map(
             -- Entradas
             clock    => clock,
-            reset    => reset,
+            reset    => reset_uc,
             medir    => medir,
             echo     => echo,
             fim_med  => fim_med_s,
@@ -92,7 +96,7 @@ begin
             gera      => gera_s,
             registra  => registra_s,
             pronto    => pronto,
-            erro      => erro,
+            erro      => erro_s,
             db_estado => db_estado
         );
 
@@ -100,7 +104,7 @@ begin
         port map(
             --Entradas
             clock    => clock,
-            zera     => zera_s,
+            zera     => reset_fd,
             conta    => tick,
             registra => registra_s,
             gera     => gera_s,
@@ -123,5 +127,7 @@ begin
             fim  => tick,
             meio => open
         );
+
+    erro <= erro_s;
 
 end architecture;

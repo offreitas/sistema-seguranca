@@ -147,10 +147,13 @@ set_location_assignment PIN_R21 -to dado_serial
 set_location_assignment PIN_A12 -to calibrando
 set_location_assignment PIN_M16 -to mode
 set_location_assignment PIN_L2 -to db_mode
-set_location_assignment PIN_AA1 -to db_fim_2s
 set_location_assignment PIN_H16 -to alerta_mov
-set_location_assignment PIN_Y3 -to db_erro
+set_location_assignment PIN_U1 -to db_erro
 set_location_assignment PIN_D17 -to senha_ok
 set_location_assignment PIN_C16 -to desarmar
 set_location_assignment PIN_H15 -to inserir_senha
+set_location_assignment PIN_W2 -to led2
+set_location_assignment PIN_Y3 -to led3
+set_location_assignment PIN_N2 -to led4
+set_location_assignment PIN_N1 -to led5
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
