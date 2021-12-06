@@ -14,10 +14,9 @@ entity sistema_seguranca_uc is
         fim_cal    : in std_logic;
         alerta     : in std_logic;
         mode       : in std_logic;
-        senha_ok   : in std_logic;
+        auth       : in std_logic;
         desarmar   : in std_logic;
         erro       : in std_logic;
-        ligar_reg  : in std_logic;
         -- Outputs
         zera       : out std_logic;
         posiciona  : out std_logic;
@@ -27,7 +26,6 @@ entity sistema_seguranca_uc is
         write_en   : out std_logic;
         alerta_out : out std_logic;
         clear_reg  : out std_logic;
-        pede_senha : out std_logic;
         db_estado  : out std_logic_vector(3 downto 0)
     );
 end entity;
@@ -40,7 +38,7 @@ architecture sistema_seguranca_uc_arch of sistema_seguranca_uc is
             cal_espera, cal_localizacao, cal_ultima_med,
             cal_armazena_ultima, medida, espera_med,
             transmissao, localizacao, analise, detectado,
-            ligar_auth, desarmar_auth
+            espera_auth
         );
 
     signal Eatual : tipo_estado;
@@ -53,32 +51,24 @@ begin
     begin
         if reset = '1' then
             Eatual <= idle;
-        elsif erro = '1' then
+        elsif ligar = '0' then
+            Eatual <= idle;
+        elsif auth = '1' then
             Eatual <= preparacao;
-        elsif (ligar_reg = '1' and ligar = '0') then
-            Eatual <= desarmar_auth;
         elsif clock'event and clock = '1' then
             Eatual <= Eprox;
         end if;
     end process;
 
     -- Logica de proximo estado
-    process(ligar, fim_1s, pronto_med, pronto_tx, fim_cal, alerta, mode, senha_ok, Eatual)
+    process(ligar, fim_1s, pronto_med, pronto_tx, fim_cal, alerta, mode, auth, desarmar, Eatual)
     begin
         case Eatual is
             when idle => 
                 if ligar = '1' then
-                    Eprox <= ligar_auth;
-                else
-                    Eprox <= idle;
-                end if;
-            
-            -- Armar
-            when ligar_auth =>
-                if senha_ok = '1' then
                     Eprox <= preparacao;
                 else
-                    Eprox <= ligar_auth;
+                    Eprox <= idle;
                 end if;
 
             when preparacao => Eprox <= cal_medida;
@@ -120,7 +110,7 @@ begin
 			
             when espera_med => 
                 if fim_1s = '1' then
-                    Eprox <= medida;
+                    Eprox <= localizacao;
                 elsif pronto_med = '1' then
                     Eprox <= analise;
                 else
@@ -145,11 +135,11 @@ begin
 
             when detectado =>
                 if desarmar = '1' then
-                    Eprox <= desarmar_auth;
+                    Eprox <= espera_auth;
                 else
                     Eprox <= detectado;
                 end if;
-
+                
             when localizacao => 
                 if fim_1s = '1' then
                     Eprox <= medida;
@@ -157,12 +147,12 @@ begin
                     Eprox <= localizacao;
                 end if;
 
-            -- Desarmar
-            when desarmar_auth =>
-                if senha_ok = '1' then
-                    Eprox <= idle;
+            -- Autenticacao
+            when espera_auth =>
+                if auth = '1' then
+                    Eprox <= preparacao;
                 else
-                    Eprox <= desarmar_auth;
+                    Eprox <= espera_auth;
                 end if;
 
             when others => Eprox <= idle;
@@ -185,8 +175,7 @@ begin
     with Eatual select
         posiciona <= 
             '0' when idle,
-            '0' when ligar_auth,
-            '0' when desarmar_auth,
+            '0' when espera_auth,
             '0' when detectado,
             '1' when others;
 
@@ -207,12 +196,6 @@ begin
 
     with Eatual select
         clear_reg <= '1' when localizacao, '0' when others;
-
-    with Eatual select
-        pede_senha <=
-            '1' when ligar_auth,
-            '1' when desarmar_auth,
-            '0' when others;
             
     -- Debug
     with Eatual select
@@ -230,7 +213,6 @@ begin
             "1010" when cal_armazena_ultima,
             "1011" when analise,
             "1101" when detectado,
-            "1110" when ligar_auth,
-            "1111" when desarmar_auth;
+            "1110" when espera_auth;
 
 end architecture;

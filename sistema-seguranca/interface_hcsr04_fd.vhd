@@ -76,46 +76,40 @@ begin
 
     -- INSTANCIAS
     U1: gerador_pulso
-            generic map(500)
-            port map(-- Entradas
-                     clock  => clock,
-                     reset  => zera,
-                     gera   => gera,
-                     para   => '0',
-                     -- Saidas
-                     pulso  => trigger,
-                     pronto => open);
+        generic map(500)
+        port map(
+            -- Entradas
+            clock  => clock,
+            reset  => zera,
+            gera   => gera,
+            para   => '0',
+            -- Saidas
+            pulso  => trigger,
+            pronto => open
+        );
     
-    U2: contadorg_m generic map(M=>4096)
-                        port map(clock => clock,
-                        zera_as => zera,
-                        zera_s => '0',
-                        conta => conta,
-                        Q => dist_s,
-                        fim => fim,
-                        meio => open );
-	 
-    --U2: contador_bcd_4digitos
-    --        port map(-- Entradas
-    --                 clock => clock,
-    --                zera  => zera,
-    --                 conta => conta,
-    --                 -- Saidas
-    --                 dig3  => open,
-    --                 dig2  => dist_s(11 downto 8),
-    --
-	 --                 dig1  => dist_s(7 downto 4),
-    --                 dig0  => dist_s(3 downto 0),
-    --                 fim   => fim);
-        
+    U2: contadorg_m
+        generic map(M=>4096)
+        port map(
+            clock => clock,
+            zera_as => zera,
+            zera_s => '0',
+            conta => conta,
+            Q => dist_s,
+            fim => fim,
+            meio => open
+        );
+
     U3: registrador_n
-            generic map(12)
-            port map(-- Entradas
-                     clock  => clock,
-                     clear  => zera,
-                     enable => registra,
-                     D      => dist_s,
-                     -- Saidas
-                     Q      => distancia);
+        generic map(12)
+        port map(
+            -- Entradas
+            clock  => clock,
+            clear  => zera,
+            enable => registra,
+            D      => dist_s,
+            -- Saidas
+            Q => distancia
+        );
 
 end architecture;

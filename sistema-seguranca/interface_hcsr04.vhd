@@ -78,8 +78,8 @@ architecture hcsr04_arch of interface_hcsr04 is
 
 begin
     -- Logica de sinais
-    reset_uc <= reset or erro_s;
-    reset_fd <= reset or zera_s or erro_s;
+    reset_uc <= reset;
+    reset_fd <= reset or zera_s;
 
     -- INSTANCIAS
     U1: interface_hcsr04_uc 

@@ -24,7 +24,7 @@ end entity;
 
 architecture hcsr04_uc_arch of interface_hcsr04_uc is
 
-    type tipo_estado is (inicial, preparacao, pulso, espera, medicao, registro, final, excecao);
+    type tipo_estado is (inicial, preparacao, pulso, espera, medicao, registro, final);
     signal Eatual : tipo_estado;
     signal Eprox  : tipo_estado;
     
@@ -56,9 +56,7 @@ begin
             when pulso => Eprox <= espera;
 
             when espera =>
-                if timer = '1' then
-                    Eprox <= excecao;
-                elsif echo = '1' then
+                if echo = '1' then
                     Eprox <= medicao;
                 else
                     Eprox <= espera;
@@ -77,8 +75,6 @@ begin
 
             when final => Eprox <= inicial;
 
-            when excecao => Eprox <= inicial;
-
             when others => Eprox <= inicial;
         end case;
     end process;
@@ -96,9 +92,6 @@ begin
     with Eatual select
         pronto <= '1' when final, '0' when others;
 
-    with Eatual select
-        erro <= '1' when excecao, '0' when others;
-
     -- Saida de deuaracao
     with Eatual select
         db_estado <=
@@ -108,7 +101,6 @@ begin
             "0011" when espera,
             "0100" when medicao,
             "0101" when registro,
-            "0110" when final,
-            "0111" when excecao;
+            "0110" when final;
 
 end architecture;

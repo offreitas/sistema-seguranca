@@ -57,10 +57,9 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			fim_cal    : in std_logic;
 			alerta     : in std_logic;
 			mode       : in std_logic;
-			senha_ok   : in std_logic;
+			auth       : in std_logic;
 			desarmar   : in std_logic;
 			erro       : in std_logic;
-			ligar_reg  : in std_logic;
 			-- Outputs
 			zera       : out std_logic;
 			posiciona  : out std_logic;
@@ -70,7 +69,6 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			write_en   : out std_logic;
 			alerta_out : out std_logic;
 			clear_reg  : out std_logic;
-			pede_senha : out std_logic;
 			db_estado  : out std_logic_vector(3 downto 0)
 		);
 	end component;
@@ -91,7 +89,9 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			calibrando  : in std_logic;
 			write_en    : in std_logic;
 			clear_reg   : in std_logic;
-			pede_senha  : in std_logic;
+			clear_sig   : in std_logic;
+			mode        : in std_logic;
+			auth        : in std_logic;
 			-- Outputs
 			pwm                         : out std_logic;
 			trigger                     : out std_logic;
@@ -104,6 +104,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 			fim_cal                     : out std_logic;
 			erro                        : out std_logic;
 			ligar_reg                   : out std_logic;
+			mode_reg                    : out std_logic;
 			contagem_mux                : out std_logic_vector(2 downto 0);
 			estado_hcsr                 : out std_logic_vector(3 downto 0);
 			estado_tx_sistema_seguranca : out std_logic_vector(3 downto 0);
@@ -141,6 +142,25 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 		);
 	end component;
 
+	-- Unidade de gerenciamento de senha
+	component pswd_handler is
+		port (
+			-- Input
+			clock    : in std_logic;
+			reset    : in std_logic;
+			ligar    : in std_logic;
+			mode     : in std_logic;
+			desarmar : in std_logic;
+			pswd_ok  : in std_logic;
+			-- Output
+			wait_pswd : out std_logic;
+			auth      : out std_logic;
+			-- Debug
+			db_event : out std_logic;
+			db_state : out std_logic_vector(3 downto 0)
+		);
+	end component;
+
 	-- Sinais
 	signal pronto_tx_s                              : std_logic;
 	signal fim_1s_s, zera_s, reset_fd               : std_logic;
@@ -152,6 +172,7 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 	signal fim_cal_s, calibrando_s, write_en_s      : std_logic;
 	signal trigger_s, mode_s, alerta_s              : std_logic;
 	signal erro_s, clear_reg_s, ligar_reg_s         : std_logic;
+	signal mode_reg_s                               : std_logic;
 	signal contagem_mux_3bits                       : std_logic_vector(2 downto 0);
 	signal contagem_mux_4bits                       : std_logic_vector(3 downto 0);
 	signal sistema_seguranca_estado, posicao_4bits  : std_logic_vector(3 downto 0);
@@ -163,12 +184,21 @@ architecture sistema_seguranca_arch of sistema_seguranca is
 	signal dist_sens                                : std_logic_vector(11 downto 0);
 	signal angulo_bcd_hex                           : std_logic_vector(23 downto 0);
 
+	-- Sinais unidade de controle
+	signal reset_auth : std_logic;
+
+	-- Sinais gerencimento de senha
+	signal event_ph : std_logic;
+	signal auth_s   : std_logic;
+	signal ph_state : std_logic_vector(3 downto 0);
+
 	-- Saidas dos multiplexadores
 	signal m0_out, m1_out, m2_out, m3_out, m4_out, m5_out : std_logic_vector(3 downto 0);
 
 begin
 
 	-- Logica de sinais
+	reset_auth         <= reset and auth_s;
 	reset_fd           <= reset or zera_s;
 	mode_s             <= mode;
 	contagem_mux_4bits <= '0' & contagem_mux_3bits;
@@ -178,18 +208,17 @@ begin
 		port map(
 			-- Inputs
 			clock      => clock,
-			reset      => reset,
-			ligar      => ligar,
+			reset      => reset_auth,
+			ligar      => ligar_reg_s,
 			fim_1s     => fim_1s_s,
 			pronto_med => pronto_med_s,
 			pronto_tx  => pronto_tx_s,
 			fim_cal    => fim_cal_s,
 			alerta     => alerta_proximidade_s,
-			mode       => mode_s,
-			senha_ok   => senha_ok,
+			mode       => mode_reg_s,
+			auth       => auth_s,
 			desarmar   => desarmar,
 			erro       => erro_s,
-			ligar_reg  => ligar_reg_s,
 			-- Outputs
 			zera       => zera_s,
 			posiciona  => posiciona_s,
@@ -199,7 +228,6 @@ begin
 			write_en   => write_en_s,
 			alerta_out => alerta_s,
 			clear_reg  => clear_reg_s,
-			pede_senha => pede_senha_s,
 			db_estado  => sistema_seguranca_estado
 		);
 
@@ -218,7 +246,9 @@ begin
 			calibrando  => calibrando_s,
 			write_en    => write_en_s,
 			clear_reg   => clear_reg_s,
-			pede_senha  => pede_senha_s, 
+			clear_sig   => reset_auth,
+			mode        => mode_s,
+			auth        => auth_s,
 			-- Outputs
 			pwm                         => pwm_s,
 			trigger                     => trigger_s,
@@ -231,6 +261,7 @@ begin
 			fim_cal                     => fim_cal_s,
 			erro                        => erro_s,
 			ligar_reg                   => ligar_reg_s,
+			mode_reg                    => mode_reg_s,
 			contagem_mux                => contagem_mux_3bits,
 			estado_hcsr                 => estado_hcsr,
 			estado_tx_sistema_seguranca => estado_tx_sistema_seguranca,
@@ -244,7 +275,24 @@ begin
 			angulo                      => angulo_bcd_hex
 		);
 	
-	M0: mux_4x1_n --VALOR DO DISPLAY HEX0
+	U3_PSWD: pswd_handler
+		port map (
+			-- Input
+			clock    => clock,
+			reset    => reset,
+			ligar    => ligar,
+			mode     => mode,
+			desarmar => desarmar,
+			pswd_ok  => senha_ok,
+			-- Output
+			wait_pswd => inserir_senha,
+			auth      => auth_s,
+			-- Debug
+			db_event => event_ph,
+			db_state => ph_state
+		);
+	
+	M0: mux_4x1_n
 		generic map(4)
 		port map(
 			-- Inputs
@@ -257,7 +305,7 @@ begin
 			MUX_OUT => m0_out
 		);
 	
-	M1: mux_4x1_n --VALOR DO DISPLAY HEX1
+	M1: mux_4x1_n
 		generic map(4)
 		port map(
 			-- Inputs
@@ -270,7 +318,7 @@ begin
 			MUX_OUT => m1_out
 		);
 	
-	M2: mux_4x1_n --VALOR DO DISPLAY HEX2
+	M2: mux_4x1_n
 		generic map(4)
 		port map(
 			-- Inputs
@@ -283,7 +331,7 @@ begin
 			MUX_OUT => m2_out
 		);
 	
-	M3: mux_4x1_n --VALOR DO DISPLAY HEX3
+	M3: mux_4x1_n
 		generic map(4)
 		port map(
 			-- Inputs
@@ -296,20 +344,20 @@ begin
 			MUX_OUT => m3_out
 		);
 	
-	M4: mux_4x1_n --VALOR DO DISPLAY HEX4
+	M4: mux_4x1_n
 		generic map(4)
 		port map(
 			-- Inputs
 			D0  => estado_hcsr,
 			D1  => dist_sens(7 downto 4), -- DADO_TX1
 			D2  => contagem_mux_4bits,
-			D3  => "0000",
+			D3  => ph_state,
 			SEL => sel_mux,
 			-- Output
 			MUX_OUT => m4_out
 		);
 	
-	M5: mux_4x1_n --VALOR DO DISPLAY HEX5
+	M5: mux_4x1_n
 		generic map(4)
 		port map(
 			-- Inputs
@@ -346,13 +394,11 @@ begin
 	alerta_proximidade <= alerta_proximidade_s;
 	alerta_prox_mqtt   <= alerta_proximidade_s;
 
-	inserir_senha <= pede_senha_s;
-
 	db_medir   <= medir_s;
 	db_trigger <= trigger_s;
 	db_echo    <= echo;
 	db_mode    <= mode_s;
 	db_fim_2s  <= fim_1s_s;
-	db_erro    <= erro_s;
+	db_erro    <= event_ph;
 
 end architecture;
